@@ -292,25 +292,138 @@ body.tvmode { overflow: hidden; }
   .brand h1 { font-size: 26px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* ===== Acabamento premium (estilo Apple): barra translúcida, título grande, mais respiro, superfícies suaves ===== */
+:root { --hair: rgba(13,13,13,.08); --vidro: rgba(242,241,240,.72); --ease: cubic-bezier(.25,.1,.25,1); }
+:root[data-tema="escuro"] { --hair: rgba(242,241,240,.10); --vidro: rgba(13,13,13,.72); }
+body { font-weight: 300; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -.003em; }
+
+/* barra superior fixa e translúcida */
+.nav { position: sticky; top: 0; z-index: 40; background: var(--vidro); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); padding-top: env(safe-area-inset-top, 0px); }
+.nav-in { max-width: 1320px; margin: 0 auto; padding-inline: var(--e4); height: 56px; display: flex; align-items: center; gap: var(--e3); }
+.nav .logo { height: 28px; }
+.navlink, .nav .btn { white-space: nowrap; }
+.nav-links { display: flex; align-items: center; gap: var(--e1); margin-left: auto; }
+.navlink { border: 0; background: transparent; color: var(--texto-suave); font-size: 13px; padding: 6px 10px; border-radius: var(--raio-pilula); transition: color .2s var(--ease), background .2s var(--ease); }
+.navlink:hover { color: var(--texto); background: var(--hair); }
+.nav .btn.primary { padding: 6px 16px; font-size: 13px; }
+
+/* abertura */
+.wrap { padding-block: var(--e4) 96px; gap: var(--e4); }
+.hero { display: grid; gap: var(--e2); max-width: 920px; }
+.hero .eyebrow { color: var(--texto-suave); }
+.hero h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; font-weight: 300; letter-spacing: -.02em; }
+.hero h1 b { font-weight: 700; }
+.hero .sub { font-size: 20px; line-height: 1.4; color: var(--texto-suave); font-weight: 300; max-width: 60ch; }
+
+/* barra de período */
+.datebar { gap: var(--e3); }
+.seg { border: 0; background: var(--hair); padding: 2px; }
+.seg button { padding: 7px 16px; transition: color .2s var(--ease), background .25s var(--ease); }
+.seg button[aria-pressed="true"] { background: var(--superficie); color: var(--texto); box-shadow: 0 1px 2px rgba(13,13,13,.08), 0 0 0 .5px rgba(13,13,13,.04); font-weight: 400; }
+.iconbtn { border: 0; background: var(--hair); width: 32px; height: 32px; transition: background .2s var(--ease); }
+.iconbtn:hover:not([disabled]) { background: var(--borda); }
+.datebar input[type=date] { border: 0; background: var(--hair); border-radius: var(--raio-pilula); padding: 7px 14px; }
+.daynav .label { font-weight: 400; }
+
+/* faixa de alertas */
+.ticker { border: 0; background: var(--superficie); padding: 12px var(--e3); }
+.tk-item { font-size: 14px; }
+
+/* KPIs: blocos grandes, sem moldura */
+.kpis { gap: var(--e2); }
+.kpi { border-radius: var(--raio-lg); padding: 28px; min-height: 188px; gap: 12px; border: 0; transition: transform .35s var(--ease), background .25s var(--ease); }
+.kpi .v { font-size: 56px; line-height: 1; letter-spacing: -.01em; }
+.kpi .eyebrow { letter-spacing: .2em; }
+.kpi.clickable:hover { transform: translateY(-2px); }
+.kpi.active { box-shadow: inset 0 0 0 2px var(--texto); }
+.kpi.hero.active { box-shadow: inset 0 0 0 2px var(--off-white); }
+.delta { border: 0; background: var(--hair); padding: 5px 9px; }
+.delta.worse { background: var(--alerta-fundo); }
+.kpi.hero .delta { background: rgba(242,241,240,.18); }
+
+/* painéis */
+.panel { border-radius: var(--raio-lg); padding: 32px; }
+.phd h2 { font-size: 28px; line-height: 1.15; letter-spacing: -.01em; }
+
+/* chips e filtros */
+.chip { border: 0; background: var(--superficie); padding: 8px 16px; transition: background .2s var(--ease), color .2s var(--ease); }
+.chip:hover { background: var(--hair); }
+.filters select, .filters input[type=search] { border: 0; background: var(--superficie); border-radius: var(--raio-pilula); padding: 9px 16px; }
+.filters input[type=search]:focus, .filters select:focus { outline: 2px solid var(--destaque-texto); outline-offset: 0; }
+
+/* cartões */
+.grid { gap: var(--e2); }
+.card { border: 0; border-radius: 24px; transition: transform .35s var(--ease); }
+.card:hover { transform: translateY(-2px); }
+.card[data-status="aberto"][data-sev="critico"] { box-shadow: inset 0 0 0 1.5px var(--alerta); }
+.card[data-status="resolvido"] { background: transparent; box-shadow: inset 0 0 0 1px var(--hair); }
+.card-h { padding: 28px 28px 16px; }
+.card-h h3 { font-size: 22px; letter-spacing: -.01em; }
+.issues { padding: 0 28px; }
+.issue { border-top: 1px solid var(--hair); }
+.card-f { border-top: 1px solid var(--hair); padding: 16px 28px 24px; }
+.pill { border: 0; background: var(--hair); color: var(--texto-suave); padding: 4px 10px; }
+.pill.aberto { background: var(--texto); color: var(--fundo); }
+.pill.notificado { background: var(--hair); color: var(--texto); }
+.pill.sev-critico { background: var(--alerta-fundo); color: var(--alerta); border: 0; }
+.pill.sev-atencao { color: var(--texto); }
+.gsel { border: 0; background: var(--hair); border-radius: var(--raio-pilula); padding: 3px 10px; }
+.bar { height: 4px; }
+.bar .tick { top: -4px; bottom: -4px; width: 2px; }
+.btn { transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease), transform .15s var(--ease); }
+.btn:active { transform: scale(.97); }
+.btn.acao { background: var(--destaque); border-color: var(--destaque); color: var(--sobre-destaque); }
+.btn.acao:hover { filter: brightness(1.08); }
+.mini { text-decoration: none; color: var(--destaque-texto); }
+.mini:hover { background: transparent; text-decoration: underline; color: var(--destaque-texto); }
+
+/* tabela de 7 dias e vazios */
+.matrix-wrap { border-radius: var(--raio-lg); }
+.matrix th, .matrix td { border-bottom: 1px solid var(--hair); }
+.empty { border: 0; background: var(--superficie); border-radius: var(--raio-lg); }
+
+/* diálogos e aviso */
+.scrim { background: rgba(13,13,13,.35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.dialog { border: 0; border-radius: 28px; padding: 32px; animation: pop .3s var(--ease) both; }
+.dialog textarea, .dialog input, .dialog select { border: 0; background: var(--fundo); border-radius: 12px; }
+@keyframes pop { from { opacity: 0; transform: scale(.97) translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* entrada suave na primeira carga */
+.kpis.entrada .kpi { animation: subir .6s var(--ease) both; }
+.kpis.entrada .kpi:nth-child(2) { animation-delay: .05s; } .kpis.entrada .kpi:nth-child(3) { animation-delay: .1s; }
+.kpis.entrada .kpi:nth-child(4) { animation-delay: .15s; } .kpis.entrada .kpi:nth-child(5) { animation-delay: .2s; } .kpis.entrada .kpi:nth-child(6) { animation-delay: .25s; }
+@keyframes subir { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  .nav-in { padding-inline: var(--e2); gap: var(--e1); }
+  .navlink { padding: 6px 8px; }
+  .hero .sub { font-size: 16px; }
+  .kpi { padding: 20px; border-radius: 24px; }
+  .kpi .v { font-size: 36px; }
+  .card-h { padding: 20px 20px 12px; } .issues { padding: 0 20px; } .card-f { padding: 12px 20px 20px; }
+}
+@media (max-width: 520px) { #btnTv, #btnGestores, #btnTema { display: none; } .nav .logo { height: 22px; } }
+@media (prefers-reduced-motion: reduce) { .kpis.entrada .kpi, .dialog { animation: none; } .card:hover, .kpi.clickable:hover { transform: none; } }
 </style>
 
 <script>try { document.documentElement.dataset.tema = localStorage.getItem("ca.tema") || "claro"; } catch (e) { document.documentElement.dataset.tema = "claro"; }</script>
-<div class="wrap">
-  <header class="top">
-    <div class="brand">
-      <img class="logo escuro" src="assets/logo-horizontal-branco.png" alt="Zanelato Marketing de Performance" width="1200" height="166">
-      <img class="logo claro" src="assets/logo-horizontal-preto.png" alt="Zanelato Marketing de Performance" width="1200" height="166">
-      <div>
-        <h1>Central de alertas: <b>o que precisa de ação hoje.</b></h1>
-        <span class="sub">Os alertas do grupo do WhatsApp, por conta, com o gestor responsável.</span>
-      </div>
-    </div>
-    <div class="top-actions">
-      <button class="btn" id="btnTema" type="button" aria-pressed="false">Tema escuro</button>
-      <button class="btn" id="btnTv" type="button">Modo TV</button>
-      <button class="btn" id="btnGestores" type="button">Gestores</button>
+<nav class="nav" aria-label="Central de alertas">
+  <div class="nav-in">
+    <img class="logo escuro" src="assets/logo-horizontal-branco.png" alt="Zanelato Marketing de Performance" width="1200" height="166">
+    <img class="logo claro" src="assets/logo-horizontal-preto.png" alt="Zanelato Marketing de Performance" width="1200" height="166">
+    <div class="nav-links">
+      <button class="navlink" id="btnTema" type="button" aria-pressed="false">Tema escuro</button>
+      <button class="navlink" id="btnTv" type="button">Modo TV</button>
+      <button class="navlink" id="btnGestores" type="button">Gestores</button>
       <button class="btn primary" id="btnImport" type="button">Importar alertas</button>
     </div>
+  </div>
+</nav>
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow" id="heroDate"></span>
+    <h1>Central de alertas: <b>o que precisa de ação hoje.</b></h1>
+    <p class="sub">Os alertas do grupo do WhatsApp, por conta, com o gestor responsável e o caminho mais curto até resolver.</p>
   </header>
 
   <section class="datebar" aria-label="Período">
@@ -629,7 +742,7 @@ body.tvmode { overflow: hidden; }
     const series = days.map(d => statsFor(dayAlerts(d), idx));
     const prev = S.mode === "semana" ? null : series[12];
     for (const k of KPIS) {
-      const active = interactive && kpiActive(k);
+      const active = interactive && !!(k.status || k.extra) && kpiActive(k);
       const pct = cur.contas ? cur.resolvido / cur.contas : 0;
       const v = el("span", { class: "v", "data-anim": prefix + k.key, "data-val": cur[k.key] }, String(ANIM[prefix + k.key] ?? 0));
       const graf = k.ring ? ring(pct, prefix + "ring") : spark(series.map(s => s[k.key]), `${k.label} nos últimos 14 dias`);
@@ -807,6 +920,7 @@ body.tvmode { overflow: hidden; }
     if (S.mode === "semana") lab.append(`${ddmm(addDays(S.date, -6))} a ${ddmm(S.date)}`, el("small", { text: "últimos 7 dias de alertas" }));
     else lab.append(`${rel} · ${ddmm(S.date)}`, el("small", { text: `alertas recebidos · dados de ${ddmm(addDays(S.date, -1))}` }));
     $("#datePick").value = S.date;
+    $("#heroDate").textContent = S.mode === "semana" ? `Semana até ${d.toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}` : d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
     $("#qHoje").setAttribute("aria-pressed", S.mode === "dia" && S.date === TODAY);
     $("#qOntem").setAttribute("aria-pressed", S.mode === "dia" && S.date === addDays(TODAY, -1));
     $("#q7").setAttribute("aria-pressed", S.mode === "semana");
@@ -950,6 +1064,7 @@ body.tvmode { overflow: hidden; }
     renderDateBar();
     for (const b of $("#statusSeg").children) b.setAttribute("aria-pressed", String(!S.extra && b.dataset.s === S.status));
     renderKpis($("#kpis"), true);
+    if (S.loaded && !S.entrou) { S.entrou = true; $("#kpis").classList.add("entrada"); setTimeout(() => $("#kpis").classList.remove("entrada"), 1200); }
     renderTicker();
     renderRace();
     renderCats();
