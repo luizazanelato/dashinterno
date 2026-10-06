@@ -173,6 +173,8 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
 .preview .p { display: flex; gap: var(--e1); justify-content: space-between; font-size: 13px; background: var(--fundo); border-radius: var(--raio-sm); padding: 8px 12px; }
 .glist { display: grid; gap: var(--e1); }
 .grow { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--e1); align-items: center; }
+.grow.novo { grid-template-columns: 1fr auto; }
+.dialog select.vazio { color: var(--destaque-texto); }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--texto); color: var(--fundo); padding: 10px 20px; border-radius: var(--raio-pilula); font-size: 13px; font-weight: 400; z-index: 60; max-width: calc(100% - 32px); }
 
 /* KPIs 3 x 2 */
@@ -1164,9 +1166,12 @@ body { font-weight: 300; -webkit-font-smoothing: antialiased; -moz-osx-font-smoo
   }
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeLayer(); });
 
-  function composeMessage(c, gid) {
+  // A marcação do gestor vem antes do alerta. Usa o nome do ClickUp quando o gestor está vinculado.
+  function composeMessage(c, gid, nomeMarcado) {
     const live = c.issues.filter(i => i.status !== "resolvido");
-    const parts = [`⚠️ Alerta — ${c.account}`, `Dados de ontem (${ddmm(c.refDate)})`, ""];
+    const g = S.gestores[gid] || {};
+    const nome = nomeMarcado || g.clickupName || g.name || "";
+    const parts = [...(nome ? [`@${nome}`] : []), `⚠️ Alerta — ${c.account}`, `Dados de ontem (${ddmm(c.refDate)})`, ""];
     for (const a of live) {
       parts.push(`• ${a.title}`);
       if (a.actual != null && a.planned != null) {
@@ -1174,9 +1179,8 @@ body { font-weight: 300; -webkit-font-smoothing: antialiased; -moz-osx-font-smoo
         parts.push(`  ${a.kind === "leads" ? "Ontem" : "Realizado"}: ${f(a.actual)} · ${a.kind === "leads" ? "Aceitável" : "Planejado"}: ${f(a.planned)}`);
       }
     }
-    const n = gestorName(gid);
-    const ask = live.every(i => i.category === "configuracao" || i.category === "ciclo") ? "pode ajustar pra gente?" : "consegue verificar e me dar um retorno?";
-    parts.push("", n ? `@${n} ${ask}` : ask.charAt(0).toUpperCase() + ask.slice(1));
+    const ask = live.every(i => i.category === "configuracao" || i.category === "ciclo") ? "Pode ajustar pra gente?" : "Consegue verificar e me dar um retorno?";
+    parts.push("", ask);
     return parts.join("\n");
   }
 
@@ -1301,6 +1305,7 @@ body { font-weight: 300; -webkit-font-smoothing: antialiased; -moz-osx-font-smoo
       if (CU.data && !cuChan.value) { const ch = channelForList(CU.data.lists.find(l => l.id === cuList.value), CU.data.channels); if (ch) cuChan.value = ch.id; }
       syncGo();
     });
+    cuUser.addEventListener("change", () => { const m = CU.data && CU.data.members.find(x => x.id === cuUser.value); ta.value = composeMessage(c, gid, m ? m.name : ""); });
     for (const x of [cuUser, cuChan, doTask, doMsg]) x.addEventListener("change", syncGo);
 
     go.addEventListener("click", async () => {
@@ -1431,36 +1436,47 @@ body { font-weight: 300; -webkit-font-smoothing: antialiased; -moz-osx-font-smoo
 
   function openGestores() {
     const list = el("div", { class: "glist" });
+    let membros = CU.data ? CU.data.members : null, erro = "";
     const draw = () => {
       list.textContent = "";
       const entries = Object.entries(S.gestores).sort((a, b) => a[1].name.localeCompare(b[1].name));
       if (!entries.length) list.append(el("p", { class: "note", text: "Nenhum gestor cadastrado ainda." }));
       for (const [id, g] of entries) {
-        const name = el("input", { value: g.name, "aria-label": "Nome", id: "gn-" + id });
-        const phone = el("input", { value: g.phone || "", placeholder: "+55 11 99999-9999", "aria-label": "WhatsApp", id: "gp-" + id, inputmode: "tel" });
-        const save = () => { if (name.value.trim() && (name.value !== g.name || phone.value !== (g.phone || ""))) guarded(() => S.db.doc("gestores/" + id).update({ name: name.value.trim(), phone: phone.value.trim() })); };
-        name.addEventListener("change", save); phone.addEventListener("change", save);
+        const name = el("input", { value: g.name, "aria-label": `Nome de ${g.name}`, id: "gn-" + id });
+        name.addEventListener("change", () => { const v = name.value.trim(); if (v && v !== g.name) guarded(() => S.db.doc("gestores/" + id).update({ name: v })); });
+        const cu = el("select", { "aria-label": `Usuário do ClickUp de ${g.name}`, id: "gc-" + id, class: g.clickupId ? "" : "vazio" });
+        cu.append(el("option", { value: "", text: "Vincular ao ClickUp…" }));
+        if (membros) for (const m of membros) cu.append(el("option", { value: m.id, text: m.name }));
+        else if (g.clickupId) cu.append(el("option", { value: g.clickupId, text: g.clickupName || "Vinculado" }));
+        if (!membros && !erro) cu.append(el("option", { value: "_", text: "Carregando membros…", disabled: true }));
+        cu.value = g.clickupId || "";
+        cu.addEventListener("change", () => {
+          const m = (membros || []).find(x => x.id === cu.value);
+          guarded(() => S.db.doc("gestores/" + id).update({ clickupId: cu.value || null, clickupName: m ? m.name : null }));
+        });
         const nAcc = Object.values(S.contas).filter(c => c.gestor === id).length;
-        list.append(el("div", { class: "grow" }, el("div", { style: "display:grid;gap:2px;min-width:0" }, name, el("span", { class: "note", text: g.clickupName ? `ClickUp: ${g.clickupName}` : "ClickUp: vincula na primeira notificação" })), phone,
+        list.append(el("div", { class: "grow" }, name, cu,
           el("button", { type: "button", class: "mini", title: nAcc ? `${nAcc} contas usam este gestor` : "", text: "Remover",
             onclick: async () => { await guarded(() => S.db.doc("gestores/" + id).delete()); } })));
       }
+      if (erro) list.append(el("p", { class: "note", text: erro }));
     };
     draw();
+    if (!membros) loadClickUp().then(d => { membros = d.members; draw(); }).catch(e => { erro = cuError(e); draw(); });
     const nn = el("input", { placeholder: "Nome do gestor", id: "newName" });
-    const np = el("input", { placeholder: "WhatsApp (opcional)", id: "newPhone", inputmode: "tel" });
     const add = el("button", { type: "button", class: "btn", text: "Adicionar", onclick: async () => {
       const name = nn.value.trim(); if (!name) return;
-      await guarded(() => S.db.doc("gestores/" + slug(name)).set({ name, phone: np.value.trim() }));
-      nn.value = np.value = "";
+      await guarded(() => S.db.doc("gestores/" + slug(name)).set({ name, clickupId: null, clickupName: null }));
+      nn.value = "";
     } });
     S.redrawGestores = draw;
     dialog("Gestores",
-      el("p", { class: "note", text: "O usuário do ClickUp de cada gestor é escolhido no Notificar gestor e fica salvo aqui. O WhatsApp é opcional." }),
+      el("p", { class: "note", text: "Vincule cada gestor ao usuário dele no ClickUp. É quem recebe a tarefa e a marcação na mensagem do Notificar gestor." }),
       list,
-      el("div", { class: "grow" }, nn, np, add),
+      el("div", { class: "grow novo" }, nn, add),
       el("div", { class: "acts" }, el("button", { type: "button", class: "btn primary", text: "Fechar", onclick: () => { S.redrawGestores = null; closeLayer(); } })));
   }
+
 
   // ---------- controls ----------
   $("#qHoje").onclick = () => { S.mode = "dia"; S.date = TODAY; render(); };
