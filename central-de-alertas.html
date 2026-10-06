@@ -34,7 +34,8 @@
 }
 * { box-sizing: border-box; }
 body { background: var(--fundo); color: var(--texto); font: 300 16px/1.55 var(--f-marca); margin: 0; font-variant-numeric: tabular-nums; }
-.wrap { max-width: 1320px; margin: 0 auto; padding-inline: var(--e4); padding-block: var(--e3) var(--e4); display: grid; gap: var(--e3); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: var(--e4); padding-block: var(--e3) var(--e4); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--e3); }
+#ticker, #tv .tvbody > * { min-width: 0; }
 h1, h2, h3 { font-family: var(--f-marca); text-wrap: balance; margin: 0; }
 b, strong { font-weight: 700; }
 button, select, input, textarea { font: inherit; color: inherit; }
@@ -82,15 +83,6 @@ button { cursor: pointer; }
 .live { display: inline-flex; align-items: center; gap: var(--e1); font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--texto-suave); }
 .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--destaque-texto); }
 .live.off i { background: transparent; border: 1px solid var(--texto-suave); }
-
-/* resumo */
-.summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: var(--e2); }
-.kpi { background: var(--superficie); border-radius: var(--raio-md); padding: var(--e3); display: grid; gap: var(--e1); align-content: start; }
-.kpi .v { font-family: var(--f-apoio); font-size: 48px; line-height: 1.1; font-weight: 500; }
-.kpi .d { font-size: 13px; line-height: 1.4; color: var(--texto-suave); }
-.kpi .d b { font-weight: 700; color: var(--texto); }
-.kpi.open { background: var(--destaque); color: var(--sobre-destaque); }
-.kpi.open .eyebrow, .kpi.open .d { color: var(--off-white); }
 
 .cats { display: flex; flex-wrap: wrap; gap: var(--e1); }
 .chip { border: 1px solid var(--borda); background: transparent; border-radius: var(--raio-pilula); padding: 6px 14px; display: inline-flex; align-items: center; gap: var(--e1); font-size: 13px; line-height: 1.4; }
@@ -185,13 +177,158 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
 .grow { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--e1); align-items: center; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--texto); color: var(--fundo); padding: 10px 20px; border-radius: var(--raio-pilula); font-size: 13px; font-weight: 400; z-index: 60; max-width: calc(100% - 32px); }
 
-@media (max-width: 860px) { .summary { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+/* KPIs 3 x 2 */
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--e2); }
+.kpi { background: var(--superficie); border: 1px solid transparent; border-radius: var(--raio-md); padding: var(--e3); display: grid; gap: var(--e1); align-content: start; min-height: 150px; min-width: 0; transition: border-color .2s; }
+.kpi .vrow { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--e1); }
+.kpi .v { font-family: var(--f-apoio); font-size: 48px; line-height: 1.1; font-weight: 500; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 13px; line-height: 1.4; color: var(--texto-suave); display: flex; flex-wrap: wrap; gap: 6px var(--e1); align-items: center; }
+.kpi.hero { background: var(--destaque); color: var(--sobre-destaque); }
+.kpi.hero .eyebrow, .kpi.hero .d { color: var(--sobre-destaque); }
+.kpi.hero .spark-line, .kpi.hero .spark-dot { stroke: var(--off-white); fill: var(--off-white); }
+.kpi.hero .spark-line { fill: none; }
+.kpi.hero .spark-area { fill: var(--off-white); }
+.kpi.hero .delta { border-color: rgba(242,241,240,.5); color: var(--sobre-destaque); }
+.kpi.clickable { cursor: pointer; }
+.kpi.clickable:hover { border-color: var(--texto-suave); }
+.kpi.active { border-color: var(--texto); }
+.kpi.hero.active { border-color: var(--off-white); box-shadow: inset 0 0 0 1px var(--off-white); }
+.sparkwrap, .ringwrap { display: block; flex: none; line-height: 0; }
+.spark-area { fill: var(--destaque-texto); opacity: .16; }
+.spark-line { fill: none; stroke: var(--destaque-texto); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.spark-dot { fill: var(--destaque-texto); }
+.ring-bg { fill: none; stroke: var(--borda); stroke-width: 7; }
+.ringarc { fill: none; stroke: var(--destaque-texto); stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .9s ease; }
+.ring-txt { font: 500 14px var(--f-marca); fill: var(--texto); }
+.delta { font-size: 12px; line-height: 1; font-weight: 500; padding: 4px 8px; border-radius: var(--raio-pilula); border: 1px solid var(--borda); white-space: nowrap; color: var(--texto-suave); }
+.delta.worse { color: var(--destaque-texto); border-color: var(--destaque-texto); }
+.delta.better { color: var(--texto); border-color: var(--texto-suave); }
+
+/* skeleton */
+.skel { display: inline-block; width: 64px; height: .9em; border-radius: var(--raio-sm); vertical-align: -1px;
+  background: linear-gradient(90deg, var(--fundo) 25%, var(--borda) 50%, var(--fundo) 75%); background-size: 200% 100%; animation: shim 1.2s linear infinite; }
+.skelblock { display: flex; flex-direction: column; gap: var(--e1); padding: 6px 0; }
+.skelblock i { display: block; height: 12px; border-radius: var(--raio-pilula);
+  background: linear-gradient(90deg, var(--fundo) 25%, var(--borda) 50%, var(--fundo) 75%); background-size: 200% 100%; animation: shim 1.2s linear infinite; }
+.skelblock i:nth-child(2) { width: 82%; } .skelblock i:nth-child(3) { width: 64%; } .skelblock i:nth-child(4) { width: 40%; }
+.skelcard { padding: var(--e3); min-height: 180px; }
+@keyframes shim { to { background-position: -200% 0; } }
+
+/* ao vivo */
+.live i { animation: live 1.8s ease-out infinite; }
+.live.off i { animation: none; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 rgba(211,199,249,.6); } 100% { box-shadow: 0 0 0 10px rgba(211,199,249,0); } }
+
+/* faixa de alertas */
+.ticker { display: flex; align-items: center; gap: var(--e2); border: 1px solid var(--borda); border-radius: var(--raio-pilula); padding: 10px var(--e3); overflow: hidden; }
+.tk-lbl { font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--texto-suave); flex: none; }
+.tk-view { overflow: hidden; flex: 1; min-width: 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+.tk-track { display: inline-flex; gap: 40px; white-space: nowrap; animation: tk var(--dur, 40s) linear infinite; }
+.ticker:hover .tk-track, .ticker:focus-within .tk-track { animation-play-state: paused; }
+.tk-dup { display: inline-flex; gap: 40px; }
+.tk-item { display: inline-flex; align-items: center; gap: var(--e1); font-size: 14px; cursor: pointer; border-radius: var(--raio-sm); }
+.tk-item b { font-weight: 500; }
+.tk-item i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--texto-suave); flex: none; }
+.tk-item.critico i { background: var(--destaque-texto); border-color: var(--destaque-texto); }
+.tk-item.atencao i { background: var(--texto); border-color: var(--texto); }
+.tk-st { font-size: 12px; color: var(--texto-suave); }
+@keyframes tk { to { transform: translateX(-50%); } }
+
+/* painéis: ranking e corrida */
+.insights { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--e2); align-items: start; }
+.panel { background: var(--superficie); border-radius: var(--raio-md); padding: var(--e3); display: grid; gap: var(--e2); min-width: 0; }
+.phd { display: grid; gap: 4px; }
+.phd h2 { font-size: 20px; line-height: 1.3; font-weight: 300; }
+.phd h2 b { font-weight: 700; }
+.racebox { position: relative; height: 260px; }
+.racebox.tv { height: 56vh; }
+.track { position: relative; height: 8px; border-radius: var(--raio-pilula); background: var(--fundo); }
+.track.sm { height: 6px; }
+.track i { display: block; height: 100%; border-radius: var(--raio-pilula); background: var(--gradiente-barra); transition: width .6s ease; }
+.track i.good { background: var(--texto); } .track i.warn { background: var(--texto-suave); } .track i.bad { background: var(--destaque-texto); }
+.track b { position: absolute; top: -5px; width: 3px; height: 16px; border-radius: 2px; background: var(--texto); transform: translateX(-1px); }
+.track.sm b { top: -5px; height: 16px; }
+.rcards { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: var(--e1); }
+.rcard { position: relative; overflow: hidden; border: 1px solid var(--borda); border-radius: var(--raio-md); padding: var(--e2); display: flex; flex-direction: column; gap: var(--e1); min-width: 0; }
+.rcard.lead { background: var(--gradiente-marca); border-color: transparent; color: var(--off-white); }
+.rcard.lead .rlbl, .rcard.lead .rsub { color: var(--off-white); }
+.rcard.lead .track { background: rgba(13,13,13,.25); } .rcard.lead .track i { background: var(--off-white); } .rcard.lead .track b { background: var(--preto); }
+.rcard.down { border-color: var(--destaque-texto); }
+.rcard.down .rpct, .rcard.down .rlbl { color: var(--destaque-texto); }
+.rpos { position: absolute; right: 8px; top: -10px; font: 200 64px/1 var(--f-apoio); opacity: .12; pointer-events: none; }
+.rhead { display: flex; align-items: center; gap: var(--e1); min-width: 0; }
+.rwho { display: grid; min-width: 0; }
+.rlbl { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--texto-suave); }
+.rname { font-weight: 500; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rnums { display: flex; align-items: baseline; gap: var(--e1); flex-wrap: wrap; }
+.rpct { font: 500 32px/1 var(--f-apoio); font-variant-numeric: tabular-nums; }
+.rsub { font-size: 12px; line-height: 1.4; color: var(--texto-suave); }
+.avatar { position: relative; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 500 14px var(--f-marca); flex: none; background: var(--fundo); color: var(--texto); border: 1px solid var(--borda); }
+.rcard.lead .avatar { background: var(--preto); color: var(--off-white); border-color: transparent; }
+.avatar.p1 { width: 48px; height: 48px; font-size: 16px; }
+.medal { position: absolute; right: -4px; bottom: -4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 500 10px var(--f-marca); border: 2px solid var(--superficie); }
+.medal.m1 { background: var(--roxo); color: var(--off-white); }
+.medal.m2 { background: var(--cinza); color: var(--preto); }
+.medal.m3 { background: var(--taupe); color: var(--off-white); }
+.rcard.lead .medal { border-color: var(--roxo); background: var(--off-white); color: var(--roxo); }
+.lrows { display: flex; flex-direction: column; }
+.lrow { display: grid; grid-template-columns: 26px minmax(0,1.2fr) minmax(60px,1fr) 48px 112px; gap: var(--e1); align-items: center; padding: 10px 4px; border-top: 1px solid var(--borda); font-size: 13px; }
+.lrow .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.lrow .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--texto-suave); }
+.g { font-size: 12px; line-height: 1; padding: 4px 8px; border-radius: var(--raio-pilula); white-space: nowrap; border: 1px solid var(--borda); color: var(--texto-suave); justify-self: end; }
+.g.good { color: var(--texto); border-color: var(--texto-suave); } .g.good::before { content: "✓ "; }
+.g.bad { color: var(--destaque-texto); border-color: var(--destaque-texto); }
+
+/* transição de aba e destaque de cartão */
+.fadein { animation: fadein .35s ease both; }
+@keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.card.flash { animation: flash 1.6s ease; }
+@keyframes flash { 0%, 40% { border-color: var(--destaque-texto); } 100% { border-color: transparent; } }
+
+/* tabela com 1ª coluna fixa */
+.matrix th.acc, .matrix td.acc { position: sticky; left: 0; z-index: 1; background: var(--superficie); box-shadow: inset -1px 0 0 var(--borda); }
+
+/* modo TV */
+#tv { position: fixed; inset: 0; z-index: 70; background: var(--fundo); overflow: auto; padding: calc(var(--e2) + env(safe-area-inset-top, 0px)) clamp(16px, 2.5vw, 48px) 32px; }
+body.tvmode { overflow: hidden; }
+.tvbar { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; margin-bottom: var(--e1); }
+.tvlogo { height: 32px; }
+.tvbrand { font: 300 clamp(20px, 2vw, 32px)/1.1 var(--f-marca); }
+.tvclock { font: 500 clamp(20px, 2vw, 32px)/1 var(--f-apoio); color: var(--texto-suave); }
+.tvdots { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.tvdot, .tvbtn { border: 1px solid var(--borda); background: transparent; color: var(--texto-suave); border-radius: var(--raio-pilula); padding: 6px 14px; font-size: 13px; }
+.tvdot[aria-pressed="true"] { background: var(--destaque); color: var(--sobre-destaque); border-color: var(--destaque); }
+.tvbtn:hover, .tvdot:hover { border-color: var(--texto); color: var(--texto); }
+.tvprog { height: 3px; background: var(--borda); border-radius: 3px; overflow: hidden; margin-bottom: var(--e3); }
+.tvprog i { display: block; height: 100%; background: var(--gradiente-barra); width: 0; animation: tvp linear forwards; }
+@keyframes tvp { to { width: 100%; } }
+.tvbody { zoom: 1.15; display: grid; gap: var(--e2); }
+#tv .card-f .btn, #tv .mini, #tv .gsel, #tv .tasklink { display: none; }
+
+@media (max-width: 1080px) { .insights { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 640px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .kpi { padding: var(--e2); min-height: 0; }
+  .kpi .v { font-size: 34px; }
+  .kpi .sparkwrap { display: none; }
+  .rcards { grid-template-columns: 1fr; }
+  .lrow { grid-template-columns: 22px minmax(0,1fr) 44px; }
+  .lrow .track, .lrow .g { display: none; }
+  .ticker { border-radius: var(--raio-md); }
+  .tvbody { zoom: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel, .skelblock i, .live i { animation: none; }
+  .tk-track { animation: none; white-space: normal; flex-wrap: wrap; gap: 8px 24px; }
+  .tk-dup { display: none; }
+  .tvprog i { animation: none; width: 100%; }
+  .fadein, .card.flash { animation: none; }
+}
 @media (max-width: 760px) {
   .wrap { padding-inline: var(--e2); }
   .grid { grid-template-columns: minmax(0,1fr); }
   .daynav .label { min-width: 0; }
   .dialog .row2, .grow { grid-template-columns: 1fr; }
-  .kpi .v { font-size: 36px; }
   .brand h1 { font-size: 26px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -208,6 +345,7 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
       </div>
     </div>
     <div class="top-actions">
+      <button class="btn" id="btnTv" type="button">Modo TV</button>
       <button class="btn" id="btnGestores" type="button">Gestores</button>
       <button class="btn primary" id="btnImport" type="button">Importar alertas</button>
     </div>
@@ -229,10 +367,23 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
     <span class="live off" id="live"><i></i><span>Conectando…</span></span>
   </section>
 
-  <section class="summary" id="summary" aria-label="Resumo do dia"></section>
+  <div id="ticker"></div>
+  <section class="kpis" id="kpis" aria-label="Resumo: toque num número para filtrar os cartões"></section>
+
+  <section class="insights">
+    <article class="panel">
+      <header class="phd"><h2>Gestores <b>no ritmo do dia.</b></h2><p class="note" id="rankNote"></p></header>
+      <div id="rank"></div>
+    </article>
+    <article class="panel">
+      <header class="phd"><h2>Corrida do mês: <b>problemas resolvidos.</b></h2><p class="note" id="raceNote"></p></header>
+      <div class="racebox" id="raceBox"><canvas role="img" aria-label="Problemas resolvidos acumulados por dia útil: mês atual, mês anterior e meta"></canvas></div>
+    </article>
+  </section>
+
   <div class="cats" id="cats" role="group" aria-label="Filtrar por tipo de alerta"></div>
 
-  <div class="filters">
+  <div class="filters" id="filtersBar">
     <div class="seg" role="group" aria-label="Filtrar por status" id="statusSeg">
       <button type="button" data-s="todos" aria-pressed="true">Todos</button>
       <button type="button" data-s="aberto" aria-pressed="false">Abertos</button>
@@ -247,6 +398,8 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
 </div>
 
 <div id="layer"></div>
+<section id="tv" hidden aria-label="Modo TV"></section>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 
 <script>
 (() => {
@@ -290,7 +443,7 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
   const S = {
     db: null, user: null, me: null, canWrite: true,
     alerts: [], gestores: {}, contas: {},
-    date: TODAY, mode: "dia", cat: "", status: "todos", gestor: "", q: "",
+    date: TODAY, mode: "dia", cat: "", status: "todos", extra: "", gestor: "", q: "", loaded: false,
     names: {},
   };
   try { const saved = JSON.parse(localStorage.getItem("ca.filters") || "{}"); if (saved.status) S.status = saved.status; } catch (e) {}
@@ -425,6 +578,324 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
     return cards;
   }
 
+  // ---------- números, grafismos e estatísticas ----------
+  const REDUCED = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const ANIM = {}, RING = {};
+  function animateNumbers(root) {
+    root.querySelectorAll("[data-anim]").forEach(n => {
+      const key = n.dataset.anim, target = Number(n.dataset.val), suf = n.dataset.suffix || "";
+      const fmt = v => Math.round(v).toLocaleString("pt-BR") + suf;
+      const from = ANIM[key]; ANIM[key] = target;
+      if (REDUCED || from === target || !isFinite(target)) { n.textContent = fmt(target); return; }
+      const start = from == null ? 0 : from, t0 = performance.now(), dur = 700;
+      n.textContent = fmt(start);
+      const step = t => {
+        const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        n.textContent = fmt(start + (target - start) * e);
+        if (k < 1 && n.isConnected) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  function spark(vals, label) {
+    const W = 84, H = 28, n = vals.length;
+    if (!n) return null;
+    const max = Math.max(1, ...vals);
+    const x = i => n === 1 ? W / 2 : (i / (n - 1)) * (W - 6) + 3, y = v => H - 4 - (v / max) * (H - 8);
+    const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const s = el("span", { class: "sparkwrap", title: label });
+    s.innerHTML = `<svg class="spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
+      <polygon class="spark-area" points="3,${H - 1} ${pts} ${W - 3},${H - 1}"></polygon>
+      <polyline class="spark-line" points="${pts}"></polyline>
+      <circle class="spark-dot" cx="${x(n - 1).toFixed(1)}" cy="${y(vals[n - 1]).toFixed(1)}" r="2.8"></circle></svg>`;
+    return s;
+  }
+  function ring(pct, key, size = 64) {
+    const r = size / 2 - 6, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct || 0));
+    const from = RING[key] == null || REDUCED ? p : RING[key]; RING[key] = p;
+    const s = el("span", { class: "ringwrap", title: `${Math.round(p * 100)}% resolvido` });
+    s.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+      <circle class="ring-bg" cx="${size / 2}" cy="${size / 2}" r="${r}"></circle>
+      <circle class="ringarc" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-dasharray="${(c * from).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"></circle>
+      <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" class="ring-txt">${Math.round(p * 100)}%</text></svg>`;
+    if (from !== p) requestAnimationFrame(() => requestAnimationFrame(() => { const a = s.querySelector(".ringarc"); if (a) a.setAttribute("stroke-dasharray", `${(c * p).toFixed(1)} ${c.toFixed(1)}`); }));
+    return s;
+  }
+  // ▲/▼ contra o dia anterior. worseUp: subir é ruim (true), bom (false) ou neutro (null)
+  function deltaChip(cur, prev, worseUp) {
+    if (cur == null || prev == null) return null;
+    if (!prev) return cur ? el("span", { class: "delta worse", title: "Ontem não havia" }, "novo") : el("span", { class: "delta", text: "= ontem" });
+    const d = (cur - prev) / prev;
+    if (d === 0) return el("span", { class: "delta", text: "= ontem" });
+    const up = d > 0, tone = worseUp == null ? "" : (up === worseUp ? "worse" : "better");
+    return el("span", { class: "delta " + tone, title: "vs dia anterior" }, `${up ? "▲" : "▼"} ${Math.abs(d * 100).toFixed(0)}%`);
+  }
+
+  const dayAlerts = d => filtered(S.alerts.filter(a => a.sentDate === d));
+  function rangeAlerts() {
+    if (S.mode !== "semana") return dayAlerts(S.date);
+    const from = addDays(S.date, -6);
+    return filtered(S.alerts.filter(a => a.sentDate >= from && a.sentDate <= S.date));
+  }
+  function statsFor(list, idx) {
+    const cards = groupCards(list);
+    const n = s => cards.filter(c => c.status === s).length;
+    return { cards, contas: cards.length, aberto: n("aberto"), notificado: n("notificado"), resolvido: n("resolvido"),
+      critico: cards.filter(c => c.status !== "resolvido" && c.sev === "critico").length,
+      repetido: cards.filter(c => c.issues.some(i => streak(i, idx) > 1)).length };
+  }
+
+  // ---------- KPIs 3 x 2 ----------
+  const KPIS = [
+    { key: "contas", label: "Contas com alerta", hint: "toque para ver todas", worseUp: true },
+    { key: "aberto", label: "Abertos", hint: "ninguém acionado ainda", status: "aberto", worseUp: true, hero: true },
+    { key: "notificado", label: "Notificados", hint: "aguardando o gestor", status: "notificado", worseUp: null },
+    { key: "resolvido", label: "Resolvidos", status: "resolvido", worseUp: false, ring: true },
+    { key: "critico", label: "Críticos em aberto", hint: "investimento, CPL/CPA, leads e ciclos", extra: "critico", worseUp: true },
+    { key: "repetido", label: "Repetidos", hint: "mesmo alerta em 2+ dias seguidos", extra: "repetido", worseUp: true },
+  ];
+  function kpiActive(k) {
+    if (k.extra) return S.extra === k.extra;
+    if (k.status) return !S.extra && S.status === k.status;
+    return !S.extra && S.status === "todos";
+  }
+  function renderKpis(box, interactive, prefix = "") {
+    box.textContent = "";
+    if (!S.loaded) {
+      for (const k of KPIS) box.append(el("div", { class: "kpi" }, el("span", { class: "eyebrow", text: k.label }),
+        el("span", { class: "v" }, el("span", { class: "skel" })), el("span", { class: "skelblock" }, el("i"), el("i"))));
+      return;
+    }
+    const idx = indexByDay(), cur = statsFor(rangeAlerts(), idx);
+    const days = [...Array(14)].map((_, i) => addDays(S.date, i - 13));
+    const series = days.map(d => statsFor(dayAlerts(d), idx));
+    const prev = S.mode === "semana" ? null : series[12];
+    for (const k of KPIS) {
+      const active = interactive && kpiActive(k);
+      const pct = cur.contas ? cur.resolvido / cur.contas : 0;
+      const v = el("span", { class: "v", "data-anim": prefix + k.key, "data-val": cur[k.key] }, String(ANIM[prefix + k.key] ?? 0));
+      const graf = k.ring ? ring(pct, prefix + "ring") : spark(series.map(s => s[k.key]), `${k.label} nos últimos 14 dias`);
+      const hint = k.ring ? `${Math.round(pct * 100)}% das contas ${S.mode === "semana" ? "da semana" : "do dia"}` : (S.mode === "semana" && k.key === "contas" ? "nos últimos 7 dias" : k.hint);
+      const card = el("div", { class: "kpi" + (k.hero ? " hero" : "") + (active ? " active" : "") + (interactive ? " clickable" : ""),
+        role: interactive ? "button" : null, tabindex: interactive ? "0" : null, "aria-pressed": interactive ? String(active) : null },
+        el("span", { class: "eyebrow", text: k.label }),
+        el("div", { class: "vrow" }, v, graf),
+        el("span", { class: "d" }, prev ? deltaChip(cur[k.key], prev[k.key], k.worseUp) : null, el("span", { text: hint })));
+      if (interactive) {
+        const go = () => {
+          if (active && (k.status || k.extra)) { S.status = "todos"; S.extra = ""; }
+          else if (k.extra) { S.extra = k.extra; S.status = "todos"; }
+          else { S.extra = ""; S.status = k.status || "todos"; }
+          S.mode = "dia"; saveFilters(); render();
+          $("#filtersBar").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "start" });
+        };
+        card.addEventListener("click", go);
+        card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+      }
+      box.append(card);
+    }
+    animateNumbers(box);
+  }
+
+  // ---------- faixa de alertas ----------
+  function focusCard(c) {
+    let n = document.getElementById("card-" + slug(c.account));
+    if (!n) { S.status = "todos"; S.extra = ""; S.cat = ""; S.q = ""; $("#search").value = ""; render(); n = document.getElementById("card-" + slug(c.account)); }
+    if (!n) return;
+    n.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "center" });
+    n.classList.remove("flash"); void n.offsetWidth; n.classList.add("flash");
+  }
+  function renderTicker() {
+    const box = $("#ticker"); box.textContent = "";
+    if (!S.loaded || S.mode === "semana") return;
+    const cards = groupCards(dayAlerts(S.date)).filter(c => c.status !== "resolvido");
+    if (!cards.length) return;
+    const item = (c, dup) => {
+      const live = c.issues.filter(i => i.status !== "resolvido");
+      const s = el("span", { class: "tk-item " + c.sev, role: dup ? null : "button", tabindex: dup ? "-1" : "0", title: "Abrir o cartão desta conta" },
+        el("i"), el("b", { text: c.account }), ` ${live[0].title}${live.length > 1 ? ` (+${live.length - 1})` : ""}`,
+        el("span", { class: "tk-st", text: c.status === "aberto" ? "aberto" : "notificado" }));
+      s.addEventListener("click", () => focusCard(c));
+      s.addEventListener("keydown", e => { if (e.key === "Enter") focusCard(c); });
+      return s;
+    };
+    box.append(el("div", { class: "ticker", role: "region", "aria-label": "Alertas em aberto do dia" },
+      el("span", { class: "tk-lbl", text: "Em aberto" }),
+      el("div", { class: "tk-view" }, el("div", { class: "tk-track", style: `--dur:${Math.max(30, cards.length * 9)}s` },
+        cards.map(c => item(c, false)), el("span", { class: "tk-dup", "aria-hidden": "true" }, cards.map(c => item(c, true)))))));
+  }
+
+  // ---------- ranking de gestores ----------
+  function pace() {
+    if (S.mode !== "dia" || S.date !== TODAY) return 1;
+    const n = new Date(), h = n.getHours() + n.getMinutes() / 60;
+    return Math.min(1, Math.max(0.05, (h - 8) / 10)); // dia útil das 8h às 18h
+  }
+  const paceOf = (pct, p) => { const r = p ? pct / p : 0;
+    return r >= 1 ? { cls: "good", txt: "No ritmo" } : r >= .85 ? { cls: "warn", txt: "Perto do ritmo" } : { cls: "bad", txt: "Abaixo do ritmo" }; };
+  const initials = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
+  function rankingData() {
+    const by = new Map();
+    for (const c of groupCards(rangeAlerts())) {
+      const g = c.gestor || "_none";
+      if (!by.has(g)) by.set(g, { gid: g, name: g === "_none" ? "Sem gestor definido" : gestorName(g) || "Gestor removido", total: 0, res: 0, open: 0, notif: 0 });
+      const r = by.get(g); r.total++;
+      r[c.status === "resolvido" ? "res" : c.status === "aberto" ? "open" : "notif"]++;
+    }
+    const p = pace();
+    const rows = [...by.values()].map(r => { const pct = r.res / r.total; return { ...r, pct, ...paceOf(pct, p) }; });
+    rows.sort((a, b) => (a.gid === "_none") - (b.gid === "_none") || b.pct - a.pct || b.res - a.res || a.open - b.open || a.name.localeCompare(b.name));
+    return { rows, pace: p };
+  }
+  function trackEl(pct, p, cls, sm) {
+    return el("div", { class: "track" + (sm ? " sm" : ""), title: `Resolvido ${Math.round(pct * 100)}% · ritmo esperado ${Math.round(p * 100)}%` },
+      el("i", { class: cls || "", style: `width:${(pct * 100).toFixed(1)}%` }), el("b", { style: `left:${(p * 100).toFixed(1)}%` }));
+  }
+  function renderRanking(box, note) {
+    box.textContent = "";
+    if (!S.loaded) { box.append(el("div", { class: "skelblock" }, el("i"), el("i"), el("i"))); return; }
+    const { rows, pace: p } = rankingData();
+    if (note) {
+      const now = new Date();
+      note.textContent = p < 1 ? `O traço marca onde cada gestor deveria estar às ${pad(now.getHours())}:${pad(now.getMinutes())}: ${Math.round(p * 100)}% resolvido (dia útil das 8h às 18h).`
+        : "O traço marca a meta do período: 100% das contas resolvidas.";
+    }
+    if (!rows.length) { box.append(el("p", { class: "note", text: "Sem alertas no período." })); return; }
+    const top = rows.filter(r => r.gid !== "_none").slice(0, 3), rest = rows.filter(r => !top.includes(r));
+    const cards = el("div", { class: "rcards" });
+    top.forEach((r, i) => {
+      const lead = i === 0 && r.res > 0;
+      cards.append(el("div", { class: "rcard" + (lead ? " lead" : "") + (!lead && r.cls === "bad" ? " down" : "") },
+        el("span", { class: "rpos", "aria-hidden": "true", text: pad(i + 1) }),
+        el("div", { class: "rhead" },
+          el("span", { class: "avatar" + (i === 0 ? " p1" : "") }, initials(r.name), el("span", { class: "medal m" + (i + 1), "aria-label": `${i + 1}º lugar`, text: i + 1 })),
+          el("div", { class: "rwho" }, el("span", { class: "rlbl", text: lead ? "Líder" : r.txt }), el("span", { class: "rname", text: r.name }))),
+        el("div", { class: "rnums" }, el("span", { class: "rpct", text: `${Math.round(r.pct * 100)}%` }), el("span", { class: "rsub", text: `${r.res} de ${r.total} resolvidas` })),
+        trackEl(r.pct, p, lead ? "" : r.cls, true),
+        el("span", { class: "rsub", text: r.open ? `${r.open} em aberto${r.notif ? ` · ${r.notif} notificadas` : ""}` : r.notif ? `${r.notif} aguardando retorno` : "Tudo resolvido" })));
+    });
+    box.append(cards);
+    if (rest.length) {
+      const l = el("div", { class: "lrows" });
+      rest.forEach((r, i) => l.append(el("div", { class: "lrow" },
+        el("span", { class: "n", text: r.gid === "_none" ? "—" : pad(top.length + i + 1) }),
+        el("span", { class: "t", text: r.name }), trackEl(r.pct, p, r.cls, true),
+        el("span", { class: "n", text: `${r.res}/${r.total}` }),
+        el("span", { class: "g " + r.cls, text: r.txt }))));
+      box.append(l);
+    }
+  }
+
+  // ---------- corrida do mês (Chart.js) ----------
+  function bizDaysOf(y, m) { const out = []; for (const d = new Date(y, m, 1); d.getMonth() === m; d.setDate(d.getDate() + 1)) { const w = d.getDay(); if (w && w < 6) out.push(iso(d)); } return out; }
+  function cumByBiz(days, daily, limit) {
+    const m0 = days[0].slice(0, 8) + "01", keys = Object.keys(daily).filter(k => k >= m0).sort(), out = [];
+    let acc = 0, i = 0;
+    for (const d of days) { if (limit && d > limit) break; while (i < keys.length && keys[i] <= d) { acc += daily[keys[i]]; i++; } out.push(acc); }
+    return out;
+  }
+  function raceData() {
+    const d = fromIso(S.date), y = d.getFullYear(), m = d.getMonth(), pm = new Date(y, m - 1, 1);
+    const cur = bizDaysOf(y, m), prev = bizDaysOf(pm.getFullYear(), pm.getMonth());
+    const res = {}, rec = {};
+    for (const a of filtered(S.alerts)) {
+      rec[a.sentDate] = (rec[a.sentDate] || 0) + 1;
+      if (a.status === "resolvido" && a.resolvedAt) { const k = iso(new Date(a.resolvedAt)); res[k] = (res[k] || 0) + 1; }
+    }
+    const limit = TODAY.slice(0, 7) === S.date.slice(0, 7) ? TODAY : null;
+    const n = Math.max(cur.length, prev.length);
+    return { labels: Array.from({ length: n }, (_, i) => String(i + 1)), cur: cumByBiz(cur, res, limit), prev: cumByBiz(prev, res), meta: cumByBiz(cur, rec, limit),
+      month: d.toLocaleDateString("pt-BR", { month: "long" }) };
+  }
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  function raceConfig(rd) {
+    const tx = css("--texto"), mu = css("--texto-suave"), li = css("--borda");
+    return { type: "line", data: { labels: rd.labels, datasets: [
+        { label: `Resolvidos em ${rd.month}`, data: rd.cur, borderColor: css("--roxo"), backgroundColor: "rgba(112,63,232,.16)", fill: true, borderWidth: 3, pointRadius: 0, tension: .25 },
+        { label: "Mês anterior, mesmo dia útil", data: rd.prev, borderColor: mu, borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: .25 },
+        { label: "Meta: resolver tudo o que chegou", data: rd.meta, borderColor: tx, borderDash: [2, 4], borderWidth: 1.5, pointRadius: 0, stepped: true } ] },
+      options: { maintainAspectRatio: false, animation: false, interaction: { mode: "index", intersect: false },
+        font: { family: "Alexandria" },
+        plugins: { legend: { position: "bottom", labels: { color: mu, boxWidth: 14, font: { family: "Alexandria", size: 12 } } },
+          tooltip: { callbacks: { title: it => "Dia útil " + it[0].label } } },
+        scales: { y: { beginAtZero: true, ticks: { color: mu, precision: 0, font: { family: "Alexandria" } }, grid: { color: li + "55" }, border: { display: false } },
+          x: { ticks: { color: mu, font: { family: "Alexandria" } }, grid: { display: false }, title: { display: true, text: "Dia útil do mês", color: mu, font: { family: "Alexandria" } } } } } };
+  }
+  function makeRace(canvas) { return window.Chart ? new Chart(canvas, raceConfig(raceData())) : null; }
+  function renderRace() {
+    const note = $("#raceNote"), box = $("#raceBox");
+    if (!window.Chart) { note.textContent = "O gráfico não carregou. Recarregue a página para tentar de novo."; return; }
+    if (!S.loaded) return;
+    const rd = raceData(), i = Math.max(0, rd.cur.length - 1);
+    note.textContent = rd.cur.length ? `Dia útil ${rd.cur.length}: ${rd.cur[i] || 0} problemas resolvidos de ${rd.meta[i] || 0} recebidos. No mês anterior, no mesmo dia útil: ${rd.prev[i] ?? 0}.` : "";
+    if (S.chart) { const cfg = raceConfig(rd); S.chart.data = cfg.data; S.chart.options = cfg.options; S.chart.update("none"); }
+    else S.chart = new Chart(box.querySelector("canvas"), raceConfig(rd));
+  }
+  if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (S.chart) { S.chart.destroy(); S.chart = null; } renderRace(); });
+
+  // ---------- modo TV ----------
+  const TV_SEC = 30;
+  const tv = { on: false, idx: 0, paused: false, t0: 0, timer: null, chart: null };
+  const SLIDES = [
+    { t: "Alertas de hoje", f: body => {
+      const k = el("section", { class: "kpis" }); body.append(k); renderKpis(k, false, "tv-");
+      const cards = groupCards(dayAlerts(S.date)).filter(c => c.status !== "resolvido"), idx = indexByDay();
+      if (!cards.length) { body.append(el("div", { class: "empty" }, el("h2", { text: "Nenhum alerta em aberto." }))); return; }
+      const g = el("div", { class: "grid" }); cards.slice(0, 9).forEach(c => g.append(cardView(c, idx))); body.append(g);
+      if (cards.length > 9) body.append(el("p", { class: "note", text: `E mais ${cards.length - 9} contas em aberto.` }));
+    } },
+    { t: "Gestores", f: body => { const b = el("div", { class: "panel" }); body.append(b); renderRanking(b, null); } },
+    { t: "Últimos 7 dias", f: body => { const from = addDays(S.date, -6); body.append(renderMatrix(filtered(S.alerts.filter(a => a.sentDate >= from && a.sentDate <= S.date)))); } },
+    { t: "Corrida do mês", f: body => { const c = el("canvas", { role: "img", "aria-label": "Corrida do mês" }); body.append(el("div", { class: "panel" }, el("div", { class: "racebox tv" }, c))); tv.chart = makeRace(c); } },
+  ];
+  const clock = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  function tvRender() {
+    const box = $("#tv");
+    if (tv.chart) { tv.chart.destroy(); tv.chart = null; }
+    const s = SLIDES[tv.idx % SLIDES.length], elapsed = Math.min(TV_SEC, (Date.now() - tv.t0) / 1000).toFixed(1);
+    box.textContent = "";
+    box.append(
+      el("div", { class: "tvbar" },
+        el("img", { class: "logo escuro tvlogo", src: "assets/logo-horizontal-branco.png", alt: "Zanelato" }),
+        el("img", { class: "logo claro tvlogo", src: "assets/logo-horizontal-preto.png", alt: "Zanelato" }),
+        el("span", { class: "tvbrand", text: s.t }), el("span", { class: "tvclock", text: clock() }),
+        el("div", { class: "tvdots" }, SLIDES.map((x, i) => el("button", { type: "button", class: "tvdot", "aria-pressed": String(i === tv.idx), text: x.t,
+          onclick: () => { tv.idx = i; tv.t0 = Date.now(); tvRender(); } }))),
+        el("button", { type: "button", class: "tvbtn", text: tv.paused ? "Retomar" : "Pausar", onclick: () => { tv.paused = !tv.paused; tvRender(); } }),
+        el("button", { type: "button", class: "tvbtn", text: "Sair", onclick: tvStop })),
+      el("div", { class: "tvprog" }, el("i", { style: `animation-duration:${TV_SEC}s;animation-delay:-${elapsed}s;animation-play-state:${tv.paused ? "paused" : "running"}` })));
+    const body = el("div", { class: "tvbody fadein" }); box.append(body); s.f(body);
+  }
+  function tvStart() {
+    Object.assign(tv, { on: true, idx: 0, paused: false, t0: Date.now() });
+    document.body.classList.add("tvmode"); $("#tv").hidden = false;
+    clearInterval(tv.timer);
+    tv.timer = setInterval(() => {
+      if (!tv.on) return;
+      const ck = $("#tv .tvclock"); if (ck) ck.textContent = clock();
+      if (tv.paused) { tv.t0 += 1000; return; }
+      if (Date.now() - tv.t0 >= TV_SEC * 1000) { tv.idx = (tv.idx + 1) % SLIDES.length; tv.t0 = Date.now(); tvRender(); }
+    }, 1000);
+    try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+    try { navigator.wakeLock && navigator.wakeLock.request("screen").then(l => { tv.lock = l; }).catch(() => {}); } catch (e) {}
+    tvRender();
+  }
+  function tvStop() {
+    tv.on = false; clearInterval(tv.timer);
+    if (tv.chart) { tv.chart.destroy(); tv.chart = null; }
+    document.body.classList.remove("tvmode"); $("#tv").hidden = true; $("#tv").textContent = "";
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+    try { tv.lock && tv.lock.release(); tv.lock = null; } catch (e) {}
+  }
+  document.addEventListener("keydown", e => {
+    if (!tv.on) return;
+    if (e.key === "Escape") { e.stopImmediatePropagation(); tvStop(); }
+    else if (e.key === "ArrowRight" || e.key === "ArrowLeft") { tv.idx = (tv.idx + (e.key === "ArrowRight" ? 1 : SLIDES.length - 1)) % SLIDES.length; tv.t0 = Date.now(); tvRender(); }
+    else if (e.key === " " && !e.target.closest("button")) { e.preventDefault(); tv.paused = !tv.paused; tvRender(); }
+  }, true);
+
+  function fadeIn(n) { if (REDUCED) return; n.classList.remove("fadein"); void n.offsetWidth; n.classList.add("fadein"); }
+
   // ---------- render ----------
   function renderDateBar() {
     const d = fromIso(S.date);
@@ -446,40 +917,6 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
       (!S.cat || a.category === S.cat) &&
       (!S.gestor || (S.gestor === "_none" ? !gestorOf(a.account) : gestorOf(a.account) === S.gestor)) &&
       (!q || (a.account + " " + a.client).toLowerCase().includes(q)));
-  }
-
-  function renderSummary(dayList, prevList) {
-    const cards = groupCards(dayList), prev = groupCards(prevList);
-    const count = (cs, s) => cs.filter(c => !s || c.status === s).length;
-    const delta = (a, b, lowerIsGood = true) => {
-      const d = a - b;
-      if (!prevList.length && !b) return el("span", { class: "d", text: "sem dados do dia anterior" });
-      if (d === 0) return el("span", { class: "d", text: "igual ao dia anterior" });
-      return el("span", { class: "d" }, el("b", { class: (d > 0) === lowerIsGood ? "up" : "down", text: (d > 0 ? "▲ " : "▼ ") + Math.abs(d) }), " vs dia anterior");
-    };
-    const sum = $("#summary"); sum.textContent = "";
-    const kpis = S.mode === "semana" ? [
-      ["", "Alertas na semana", dayList.length, el("span", { class: "d", text: `${new Set(dayList.map(a => slug(a.account))).size} contas diferentes` })],
-      ["open", "Ainda abertos", count(cards, "aberto"), el("span", { class: "d", text: "contas sem ação" })],
-      ["notif", "Notificados", count(cards, "notificado"), el("span", { class: "d", text: "aguardando gestor" })],
-      ["done", "Resolvidos", count(cards, "resolvido"), el("span", { class: "d", text: "contas fechadas" })],
-    ] : [
-      ["", "Contas com alerta", cards.length, delta(cards.length, prev.length)],
-      ["open", "Abertos", count(cards, "aberto"), el("span", { class: "d", text: "ninguém acionado ainda" })],
-      ["notif", "Notificados", count(cards, "notificado"), el("span", { class: "d", text: "aguardando o gestor" })],
-      ["done", "Resolvidos", count(cards, "resolvido"), el("span", { class: "d", text: cards.length ? `${Math.round(100 * count(cards, "resolvido") / cards.length)}% do dia` : "—" })],
-    ];
-    for (const [cls, lab, v, d] of kpis) sum.append(el("div", { class: "kpi " + cls }, el("span", { class: "eyebrow", text: lab }), el("span", { class: "v", text: v }), d));
-
-    const cats = $("#cats"); cats.textContent = "";
-    const byCat = {};
-    for (const a of dayList) byCat[a.category] = (byCat[a.category] || 0) + 1;
-    cats.append(el("button", { type: "button", class: "chip", "aria-pressed": !S.cat, onclick: () => { S.cat = ""; render(); } }, "Todos os tipos", el("span", { class: "n", text: dayList.length })));
-    for (const [k, c] of Object.entries(CATS)) {
-      if (!byCat[k] && S.cat !== k) continue;
-      cats.append(el("button", { type: "button", class: "chip", "aria-pressed": S.cat === k, onclick: () => { S.cat = S.cat === k ? "" : k; render(); } },
-        el("span", { class: "dot", style: `background:${c.color}` }), c.label, el("span", { class: "n", text: byCat[k] || 0 })));
-    }
   }
 
   function renderGestorOptions() {
@@ -520,7 +957,7 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
 
   function cardView(c, idx) {
     const gid = c.gestor;
-    const card = el("article", { class: "card", "data-sev": c.sev, "data-status": c.status });
+    const card = el("article", { class: "card", id: "card-" + slug(c.account), "data-sev": c.sev, "data-status": c.status });
     const gsel = el("select", { class: "gsel" + (gid ? "" : " none"), "aria-label": `Gestor de ${c.account}`, disabled: !S.canWrite,
       onchange: e => setGestor(c.account, e.target.value) });
     gsel.append(el("option", { value: "", text: "Definir gestor…" }));
@@ -606,30 +1043,36 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
       S.canWrite && S.db ? el("button", { type: "button", class: "btn primary", onclick: openImport, text: "Importar alertas" }) : null);
   }
 
+  let lastView = "";
   function render() {
     renderDateBar();
-    for (const b of $("#statusSeg").children) b.setAttribute("aria-pressed", b.dataset.s === S.status);
+    for (const b of $("#statusSeg").children) b.setAttribute("aria-pressed", String(!S.extra && b.dataset.s === S.status));
+    renderKpis($("#kpis"), true);
+    renderTicker();
+    renderRanking($("#rank"), $("#rankNote"));
+    renderRace();
+    renderCats();
     const main = $("#main"); main.textContent = "";
+    const view = [S.mode, S.date, S.status, S.extra, S.cat].join("|");
+    if (view !== lastView) { lastView = view; fadeIn(main); }
+    if (tv.on) tvRender();
+    if (!S.loaded) {
+      const g = el("div", { class: "grid" });
+      for (let i = 0; i < 3; i++) g.append(el("div", { class: "card skelcard" }, el("div", { class: "skelblock" }, el("i"), el("i"), el("i"), el("i"))));
+      main.append(g);
+      return;
+    }
     if (!S.db) {
-      renderSummary([], []);
-      main.append(el("div", { class: "empty" }, el("h2", { text: S.loading ? "Carregando alertas…" : "Os alertas ficam salvos no claude.ai" }),
-        el("p", { style: "margin:0;max-width:56ch", text: S.loading ? "Buscando os alertas do grupo." : "Abra esta página logado no claude.ai para ver e atualizar os alertas da equipe." })));
+      main.append(el("div", { class: "empty" }, el("h2", { text: "Os alertas ficam salvos no claude.ai" }),
+        el("p", { style: "margin:0;max-width:56ch", text: "Abra esta página logado no claude.ai para ver e atualizar os alertas da equipe." })));
       return;
     }
     const idx = indexByDay();
-    let dayList, prevList;
-    if (S.mode === "semana") {
-      const from = addDays(S.date, -6);
-      dayList = filtered(S.alerts.filter(a => a.sentDate >= from && a.sentDate <= S.date));
-      prevList = [];
-    } else {
-      dayList = filtered(S.alerts.filter(a => a.sentDate === S.date));
-      prevList = filtered(S.alerts.filter(a => a.sentDate === addDays(S.date, -1)));
-    }
-    renderSummary(dayList, prevList);
-    if (S.mode === "semana") { main.append(renderMatrix(dayList)); return; }
-    let cards = groupCards(dayList);
-    if (S.status !== "todos") cards = cards.filter(c => c.status === S.status);
+    if (S.mode === "semana") { main.append(renderMatrix(rangeAlerts())); return; }
+    let cards = groupCards(dayAlerts(S.date));
+    if (S.extra === "critico") cards = cards.filter(c => c.status !== "resolvido" && c.sev === "critico");
+    else if (S.extra === "repetido") cards = cards.filter(c => c.issues.some(i => streak(i, idx) > 1));
+    else if (S.status !== "todos") cards = cards.filter(c => c.status === S.status);
     if (!cards.length) {
       const anyDay = S.alerts.some(a => a.sentDate === S.date);
       main.append(anyDay
@@ -641,6 +1084,20 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
     for (const c of cards) grid.append(cardView(c, idx));
     main.append(grid);
   }
+
+  function renderCats() {
+    const list = rangeAlertsNoCat();
+    const cats = $("#cats"); cats.textContent = "";
+    const byCat = {};
+    for (const a of list) byCat[a.category] = (byCat[a.category] || 0) + 1;
+    cats.append(el("button", { type: "button", class: "chip", "aria-pressed": String(!S.cat), onclick: () => { S.cat = ""; render(); } }, "Todos os tipos", el("span", { class: "n", text: list.length })));
+    for (const [k, c] of Object.entries(CATS)) {
+      if (!byCat[k] && S.cat !== k) continue;
+      cats.append(el("button", { type: "button", class: "chip", "aria-pressed": String(S.cat === k), onclick: () => { S.cat = S.cat === k ? "" : k; render(); } },
+        c.label, el("span", { class: "n", text: byCat[k] || 0 })));
+    }
+  }
+  function rangeAlertsNoCat() { const c = S.cat; S.cat = ""; const r = rangeAlerts(); S.cat = c; return r; }
 
   // ---------- people ----------
   async function personName(id) {
@@ -997,7 +1454,8 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
   $("#nextDay").onclick = () => { const n = addDays(S.date, S.mode === "semana" ? 7 : 1); S.date = n > TODAY ? TODAY : n; render(); };
   $("#datePick").max = TODAY;
   $("#datePick").onchange = e => { if (e.target.value) { S.date = e.target.value > TODAY ? TODAY : e.target.value; render(); } };
-  $("#statusSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.status = b.dataset.s; saveFilters(); render(); };
+  $("#statusSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.status = b.dataset.s; S.extra = ""; saveFilters(); render(); };
+  $("#btnTv").onclick = () => { if (S.mode === "semana") S.mode = "dia"; tvStart(); };
   $("#gestorFilter").onchange = e => { S.gestor = e.target.value; render(); };
   $("#search").oninput = e => { S.q = e.target.value; render(); };
   $("#btnImport").onclick = () => { if (S.db && S.canWrite) openImport(); else toast("Abra logado no claude.ai para importar."); };
@@ -1010,7 +1468,7 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
     const live = $("#live");
     const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
     S.loading = false;
-    if (!db) { live.querySelector("span").textContent = "Offline"; render(); return; }
+    if (!db) { S.loaded = true; live.querySelector("span").textContent = "Offline"; render(); return; }
     S.db = db;
     window.claude.use("mcp").then(m => { S.mcp = m; });
     const user = await window.claude.use("user");
@@ -1021,9 +1479,10 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 680px; }
       if (cw === false) S.canWrite = false;
     }
     $("#btnImport").hidden = !S.canWrite;
-    const fail = () => { live.className = "live off"; live.querySelector("span").textContent = "Sem conexão"; };
+    const fail = () => { S.loaded = true; live.className = "live off"; live.querySelector("span").textContent = "Sem conexão"; render(); };
     db.collection("alerts").orderBy("sentDate", "desc").limit(1000).onSnapshot(snap => {
       S.alerts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      S.loaded = true;
       live.className = "live"; live.querySelector("span").textContent = "Ao vivo";
       render();
     }, fail);
