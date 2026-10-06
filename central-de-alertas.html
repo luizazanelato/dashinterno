@@ -159,7 +159,12 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
 .dialog textarea { min-height: 180px; resize: vertical; font-family: var(--f-mono); font-size: 13px; line-height: 1.5; }
 .dialog .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .dialog .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.note { font-size: 12px; color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+.checks { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.dialog label.check { display: inline-flex; align-items: center; gap: 8px; color: var(--fg); font-size: 14px; }
+.dialog .acts .spacer { flex: 1; }
+.tasklink { font-size: 12px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.tasklink:hover { text-decoration: underline; }
 .preview { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
 .preview .p { display: flex; gap: 8px; justify-content: space-between; font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 6px 10px; }
 .glist { display: grid; gap: 8px; }
@@ -516,10 +521,13 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
     const who = el("span", { class: "who" });
     if (c.status === "resolvido" && c.resolvedAt) who.textContent = `Resolvido em ${hhmm(c.resolvedAt)}`;
     else if (c.notifiedAt) {
-      who.textContent = `Gestor acionado em ${hhmm(c.notifiedAt)}`;
+      const via = (c.issues.find(i => i.notifiedAt === c.notifiedAt) || {}).notifiedVia || [];
+      who.textContent = `Gestor acionado em ${hhmm(c.notifiedAt)}` + (via.some(v => v.startsWith("clickup")) ? " pelo ClickUp" : "");
       if (c.notifiedBy) personName(c.notifiedBy).then(n => { if (n) who.textContent += ` por ${n}`; });
     } else who.textContent = gid ? `Responsável: ${gestorName(gid)}` : "Sem gestor definido";
     const foot = el("div", { class: "card-f" }, who);
+    const tUrl = (c.issues.find(i => i.clickupTaskUrl) || {}).clickupTaskUrl;
+    if (tUrl) foot.append(el("a", { class: "tasklink", href: tUrl, target: "_blank", rel: "noopener", text: "Ver tarefa no ClickUp ↗" }));
     if (S.canWrite && c.status !== "resolvido") {
       foot.append(el("button", { type: "button", class: "btn sm " + (c.status === "aberto" ? "primary" : ""), onclick: () => openNotify(c),
         text: c.status === "notificado" ? "Cobrar de novo" : "Notificar gestor" }));
@@ -678,47 +686,209 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
     return parts.join("\n");
   }
 
+  // ---------- ClickUp ----------
+  const CU = { server: "ClickUp", ws: "3079757", space: "90142416486", data: null, loading: null };
+  const cuPayload = r => { let p = r && (r.payload !== undefined ? r.payload : r); if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) {} } return p; };
+  function cuError(e) {
+    const code = e && e.code;
+    if (code === "server_not_connected" || code === "selection_required") return "Conecte o ClickUp em claude.ai → Configurações → Conectores e tente de novo.";
+    if (code === "needs_reauth") return "O acesso ao ClickUp expirou. Reconecte em claude.ai → Configurações → Conectores.";
+    if (code === "not_in_manifest" || code === "consent_required") return "Você não liberou o ClickUp para esta página. Libere no menu Permissões da página.";
+    if (code === "blocked_by_policy" || code === "approval_required") return "A política da sua organização bloqueou essa ação no ClickUp.";
+    if (code === "tool_error") return "O ClickUp recusou: " + (e.message || "erro sem detalhe") ;
+    if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") return "O ClickUp não está disponível nesta visualização. Abra a página no claude.ai.";
+    return "O ClickUp não respondeu" + (e && e.message ? ` (${e.message})` : "") + ".";
+  }
+  async function loadClickUp() {
+    if (CU.data) return CU.data;
+    if (CU.loading) return CU.loading;
+    if (!S.mcp) throw { code: "not_granted" };
+    const opt = { cache: { staleTime: 300000, gcTime: 86400000 } };
+    CU.loading = (async () => {
+      const h = cuPayload(await S.mcp.callTool(CU.server, "clickup_get_workspace_hierarchy", { workspace_id: CU.ws, space_ids: [CU.space], max_depth: "2", limit: 50 }, opt));
+      const lists = [];
+      const walk = (n, folder) => { for (const ch of (n && n.children) || []) {
+        if (ch.type === "list") lists.push({ id: String(ch.id), name: String(ch.name).trim(), folder });
+        else if (ch.type === "folder" && !/^modelos$/i.test(ch.name)) walk(ch, ch.name);
+        else if (ch.type === "space") walk(ch, "");
+      } };
+      walk(h && h.hierarchy && h.hierarchy.root, "");
+      const channels = [];
+      let cursor;
+      for (let i = 0; i < 6; i++) {
+        const p = cuPayload(await S.mcp.callTool(CU.server, "clickup_get_chat_channels", cursor ? { workspace_id: CU.ws, limit: 100, cursor } : { workspace_id: CU.ws, limit: 100 }, opt));
+        for (const c of (p && p.channels) || []) if (c.type === "CHANNEL" && c.name && !/^\s*\[?(FINALIZADO|PAUSADO|CANCELADO)/i.test(c.name)) channels.push({ id: String(c.id), name: String(c.name).trim() });
+        if (!p || !p.has_more || !p.next_cursor) break;
+        cursor = p.next_cursor;
+      }
+      const m = cuPayload(await S.mcp.callTool(CU.server, "clickup_get_workspace_members", { workspace_id: CU.ws }, opt));
+      const members = ((m && m.members) || []).map(x => ({ id: String(x.id), name: x.name || x.username || x.email || String(x.id) }));
+      lists.sort((a, b) => a.name.localeCompare(b.name)); channels.sort((a, b) => a.name.localeCompare(b.name)); members.sort((a, b) => a.name.localeCompare(b.name));
+      CU.data = { lists, channels, members };
+      return CU.data;
+    })();
+    try { return await CU.loading; } finally { CU.loading = null; }
+  }
+  // Sugere a lista do projeto pela sigla da conta, ex.: "Marcelo - PEP" → "[MO][PEP] …"
+  function guessList(account, lists) {
+    const parts = account.split(/\s+-\s+/);
+    const prod = (parts[parts.length - 1] || "").split(/\s+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!prod || prod.length < 2) return null;
+    const hits = lists.filter(l => l.name.toUpperCase().includes(`[${prod}]`) || l.name.toUpperCase().includes(`[W-${prod}]`));
+    return hits.length === 1 ? hits[0] : null;
+  }
+  const channelForList = (list, channels) => list ? channels.find(c => c.name === list.name) || channels.find(c => c.id === `6-${list.id}-8`) || null : null;
+  const taskUrlFrom = p => {
+    if (!p) return { id: null, url: null };
+    if (typeof p === "string") { const m = p.match(/app\.clickup\.com\/t\/[\w/-]+/); const id = (p.match(/"id"\s*:\s*"([\w-]+)"/) || [])[1] || null; return { id, url: m ? "https://" + m[0] : null }; }
+    const t = p.task || p.data || p;
+    const id = t.id || t.task_id || null;
+    return { id: id ? String(id) : null, url: t.url || (id ? `https://app.clickup.com/t/${id}` : null) };
+  };
+
   function openNotify(c) {
     let gid = c.gestor;
+    const conta = S.contas[slug(c.account)] || {};
+    const sev = c.sev;
+    const live = c.issues.filter(i => i.status !== "resolvido");
+
     const sel = el("select", { id: "nGestor" });
     sel.append(el("option", { value: "", text: "Sem gestor definido" }));
     for (const [id, g] of Object.entries(S.gestores).sort((a, b) => a[1].name.localeCompare(b[1].name))) sel.append(el("option", { value: id, text: g.name }));
     sel.value = gid;
+
+    const cuUser = el("select", { id: "nCuUser" }, el("option", { value: "", text: "Carregando membros…" }));
+    const cuList = el("select", { id: "nCuList" }, el("option", { value: "", text: "Carregando listas…" }));
+    const cuChan = el("select", { id: "nCuChan" }, el("option", { value: "", text: "Carregando canais…" }));
+    const tName = el("input", { id: "nTask", value: `[Alerta] ${c.account} · ${live.map(i => i.title.replace(/\s+do planejado$/, "")).join(" / ")}`.slice(0, 180) });
+    const prio = el("select", { id: "nPrio" }, ...[["urgent", "Urgente"], ["high", "Alta"], ["normal", "Normal"], ["low", "Baixa"]].map(([v, t]) => el("option", { value: v, text: t })));
+    prio.value = sev === "critico" ? "urgent" : sev === "atencao" ? "high" : "normal";
+    const due = el("input", { id: "nDue", type: "date", value: TODAY });
+    const doTask = el("input", { type: "checkbox", id: "nDoTask", checked: true, style: "width:auto" });
+    const doMsg = el("input", { type: "checkbox", id: "nDoMsg", checked: true, style: "width:auto" });
     const ta = el("textarea", { id: "nMsg" });
     ta.value = composeMessage(c, gid);
-    const phoneNote = el("p", { class: "note" });
-    const wa = el("a", { class: "btn", target: "_blank", rel: "noopener" }, "Abrir no WhatsApp");
-    const sync = () => {
-      const g = S.gestores[gid] || {};
-      const phone = String(g.phone || "").replace(/\D/g, "");
-      wa.href = (phone ? `https://wa.me/${phone}` : "https://wa.me/") + "?text=" + encodeURIComponent(ta.value);
-      phoneNote.textContent = phone
-        ? `Abre a conversa direta com ${g.name} (${g.phone}). Para mandar no grupo, use Copiar mensagem e cole lá.`
-        : "Sem telefone cadastrado: o WhatsApp abre para você escolher a conversa (o grupo Alertas, por exemplo). Cadastre telefones em Gestores.";
+    const status = el("p", { class: "note", role: "status" });
+    const go = el("button", { type: "button", class: "btn primary", text: "Criar tarefa e avisar no ClickUp", disabled: true });
+    const syncGo = () => {
+      const need = (doTask.checked && cuList.value) || (doMsg.checked && cuChan.value);
+      go.disabled = !need || !cuUser.value;
+      go.textContent = doTask.checked && doMsg.checked ? "Criar tarefa e avisar no ClickUp" : doTask.checked ? "Criar tarefa no ClickUp" : doMsg.checked ? "Enviar mensagem no ClickUp" : "Escolha o que fazer";
     };
+    const fill = (selEl, items, value, empty) => {
+      selEl.textContent = "";
+      selEl.append(el("option", { value: "", text: empty }));
+      for (const it of items) selEl.append(el("option", { value: it.id, text: it.folder ? `${it.name}` : it.name }));
+      selEl.value = value || "";
+    };
+
+    loadClickUp().then(d => {
+      const g = S.gestores[gid] || {};
+      fill(cuUser, d.members, g.clickupId, "Escolher membro do ClickUp…");
+      let listId = conta.clickupListId, chanId = conta.clickupChannelId;
+      if (!listId) { const gl = guessList(c.account, d.lists); if (gl) { listId = gl.id; status.textContent = `Sugeri a lista ${gl.name} pela sigla da conta. Confira antes de enviar.`; } }
+      if (!chanId && listId) { const ch = channelForList(d.lists.find(l => l.id === listId), d.channels); if (ch) chanId = ch.id; }
+      fill(cuList, d.lists, listId, "Escolher lista do projeto…");
+      fill(cuChan, d.channels, chanId, "Escolher canal…");
+      syncGo();
+    }).catch(e => {
+      for (const s of [cuUser, cuList, cuChan]) { s.textContent = ""; s.append(el("option", { value: "", text: "ClickUp indisponível" })); }
+      status.textContent = cuError(e);
+    });
+
     sel.addEventListener("change", async () => {
-      gid = sel.value; ta.value = composeMessage(c, gid); sync();
+      gid = sel.value; ta.value = composeMessage(c, gid);
+      const g = S.gestores[gid] || {};
+      if (g.clickupId && [...cuUser.options].some(o => o.value === g.clickupId)) cuUser.value = g.clickupId;
+      syncGo();
       if (gid !== c.gestor) await setGestor(c.account, gid);
     });
-    ta.addEventListener("input", sync);
-    sync();
-    const copy = el("button", { type: "button", class: "btn", text: "Copiar mensagem", onclick: async () => {
+    cuList.addEventListener("change", () => {
+      if (CU.data && !cuChan.value) { const ch = channelForList(CU.data.lists.find(l => l.id === cuList.value), CU.data.channels); if (ch) cuChan.value = ch.id; }
+      syncGo();
+    });
+    for (const x of [cuUser, cuChan, doTask, doMsg]) x.addEventListener("change", syncGo);
+
+    go.addEventListener("click", async () => {
+      go.disabled = true;
+      const userId = cuUser.value;
+      const list = CU.data && CU.data.lists.find(l => l.id === cuList.value);
+      const chan = CU.data && CU.data.channels.find(ch => ch.id === cuChan.value);
+      // guarda os vínculos para a próxima vez
+      if (gid && userId && (S.gestores[gid] || {}).clickupId !== userId) {
+        const mem = CU.data.members.find(m => m.id === userId);
+        await guarded(() => S.db.doc("gestores/" + gid).update({ clickupId: userId, clickupName: mem ? mem.name : "" }));
+      }
+      if ((list && list.id !== conta.clickupListId) || (chan && chan.id !== conta.clickupChannelId)) {
+        await guarded(() => S.db.doc("contas/" + slug(c.account)).set({ ...conta, account: c.account, gestor: gid || conta.gestor || "",
+          clickupListId: list ? list.id : conta.clickupListId || "", clickupListName: list ? list.name : conta.clickupListName || "",
+          clickupChannelId: chan ? chan.id : conta.clickupChannelId || "", clickupChannelName: chan ? chan.name : conta.clickupChannelName || "" }));
+      }
+      let task = null, msgOk = false;
+      if (doTask.checked && list) {
+        status.textContent = "Criando a tarefa…";
+        try {
+          const r = await S.mcp.callTool(CU.server, "clickup_create_task", {
+            workspace_id: CU.ws, list_id: list.id, name: tName.value.trim() || `[Alerta] ${c.account}`,
+            markdown_description: ta.value + `\n\n---\nAlerta recebido em ${ddmm(c.sentDate)} · dados de ${ddmm(c.refDate)} · Central de Alertas`,
+            assignees: [userId], priority: prio.value, ...(due.value ? { due_date: due.value } : {}),
+          }, { cache: false });
+          task = taskUrlFrom(cuPayload(r));
+        } catch (e) {
+          const ambiguous = e && (e.code === "server_unavailable" || e.code === "upstream_error");
+          status.textContent = ambiguous ? "O ClickUp não confirmou a criação. Confira a lista no ClickUp antes de tentar de novo, para não duplicar a tarefa." : cuError(e);
+          go.disabled = false; return;
+        }
+      }
+      if (doMsg.checked && chan) {
+        status.textContent = "Enviando a mensagem no canal…";
+        try {
+          await S.mcp.callTool(CU.server, "clickup_send_chat_message", {
+            workspace_id: CU.ws, channel_id: chan.id, content_format: "text/md",
+            content: ta.value + (task && task.url ? `\n\nTarefa: ${task.url}` : ""),
+            assignee: userId, followers: [userId],
+          }, { cache: false });
+          msgOk = true;
+        } catch (e) {
+          status.textContent = (task ? "A tarefa foi criada, mas a mensagem não foi enviada. " : "") + cuError(e);
+        }
+      }
+      if (task || msgOk) {
+        const via = [task ? "clickup-tarefa" : null, msgOk ? "clickup-mensagem" : null].filter(Boolean);
+        for (const a of live) {
+          await guarded(() => S.db.doc("alerts/" + a.id).update({ status: "notificado", notifiedAt: Date.now(), notifiedBy: S.me, notifiedGestor: gid || null,
+            notifiedVia: via, clickupTaskId: task ? task.id : a.clickupTaskId || null, clickupTaskUrl: task ? task.url : a.clickupTaskUrl || null,
+            clickupChannelId: msgOk ? chan.id : a.clickupChannelId || null }));
+        }
+        if (!(doMsg.checked && chan && !msgOk)) { closeLayer(); toast(task && msgOk ? "Tarefa criada e mensagem enviada no ClickUp." : task ? "Tarefa criada no ClickUp." : "Mensagem enviada no ClickUp."); }
+        else go.disabled = false;
+      } else go.disabled = false;
+    });
+
+    const copy = el("button", { type: "button", class: "btn ghost", text: "Copiar para WhatsApp", onclick: async () => {
       try { await navigator.clipboard.writeText(ta.value); toast("Mensagem copiada."); }
       catch (e) { ta.focus(); ta.select(); toast("Selecionei o texto. Use Ctrl+C / Cmd+C para copiar."); }
     } });
-    const mark = el("button", { type: "button", class: "btn primary", text: "Marcar como notificado", onclick: async () => {
-      mark.disabled = true;
-      for (const a of c.issues) {
-        if (a.status === "resolvido") continue;
-        await guarded(() => S.db.doc("alerts/" + a.id).update({ status: "notificado", notifiedAt: Date.now(), notifiedBy: S.me, notifiedGestor: gid || null }));
-      }
-      closeLayer(); toast(`${c.account}: gestor marcado como notificado.`);
+    const markOnly = el("button", { type: "button", class: "mini", text: "Só marcar como notificado", onclick: async () => {
+      for (const a of live) await guarded(() => S.db.doc("alerts/" + a.id).update({ status: "notificado", notifiedAt: Date.now(), notifiedBy: S.me, notifiedGestor: gid || null, notifiedVia: ["manual"] }));
+      closeLayer(); toast(`${c.account}: marcado como notificado.`);
     } });
+
     dialog(`Notificar gestor · ${c.account}`,
-      el("label", {}, "Gestor responsável pela conta", sel),
-      el("label", {}, "Mensagem", ta),
-      phoneNote,
-      el("div", { class: "acts" }, el("button", { type: "button", class: "btn ghost", text: "Cancelar", onclick: closeLayer }), copy, wa, mark));
+      el("div", { class: "row2" },
+        el("label", {}, "Gestor responsável", sel),
+        el("label", {}, "Usuário no ClickUp", cuUser)),
+      el("div", { class: "row2" },
+        el("label", {}, "Lista da tarefa (projeto)", cuList),
+        el("label", {}, "Canal para a mensagem", cuChan)),
+      el("label", {}, "Nome da tarefa", tName),
+      el("div", { class: "row2" }, el("label", {}, "Prioridade", prio), el("label", {}, "Prazo", due)),
+      el("label", {}, "Mensagem (vai na descrição da tarefa e no canal)", ta),
+      el("div", { class: "checks" },
+        el("label", { class: "check" }, doTask, "Criar tarefa atribuída ao gestor"),
+        el("label", { class: "check" }, doMsg, "Enviar mensagem no canal do projeto")),
+      status,
+      el("div", { class: "acts" }, markOnly, el("span", { class: "spacer" }), el("button", { type: "button", class: "btn ghost", text: "Cancelar", onclick: closeLayer }), copy, go));
   }
 
   function openImport() {
@@ -774,10 +944,10 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
       for (const [id, g] of entries) {
         const name = el("input", { value: g.name, "aria-label": "Nome", id: "gn-" + id });
         const phone = el("input", { value: g.phone || "", placeholder: "+55 11 99999-9999", "aria-label": "WhatsApp", id: "gp-" + id, inputmode: "tel" });
-        const save = () => { if (name.value.trim() && (name.value !== g.name || phone.value !== (g.phone || ""))) guarded(() => S.db.doc("gestores/" + id).set({ name: name.value.trim(), phone: phone.value.trim() })); };
+        const save = () => { if (name.value.trim() && (name.value !== g.name || phone.value !== (g.phone || ""))) guarded(() => S.db.doc("gestores/" + id).update({ name: name.value.trim(), phone: phone.value.trim() })); };
         name.addEventListener("change", save); phone.addEventListener("change", save);
         const nAcc = Object.values(S.contas).filter(c => c.gestor === id).length;
-        list.append(el("div", { class: "grow" }, name, phone,
+        list.append(el("div", { class: "grow" }, el("div", { style: "display:grid;gap:2px;min-width:0" }, name, el("span", { class: "note", text: g.clickupName ? `ClickUp: ${g.clickupName}` : "ClickUp: vincula na primeira notificação" })), phone,
           el("button", { type: "button", class: "mini", title: nAcc ? `${nAcc} contas usam este gestor` : "", text: "Remover",
             onclick: async () => { await guarded(() => S.db.doc("gestores/" + id).delete()); } })));
       }
@@ -792,7 +962,7 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
     } });
     S.redrawGestores = draw;
     dialog("Gestores",
-      el("p", { class: "note", style: "margin:0", text: "Com o WhatsApp cadastrado, o botão Notificar gestor abre a conversa direta já com a mensagem pronta." }),
+      el("p", { class: "note", text: "O usuário do ClickUp de cada gestor é escolhido no Notificar gestor e fica salvo aqui. O WhatsApp é opcional." }),
       list,
       el("div", { class: "grow" }, nn, np, add),
       el("div", { class: "acts" }, el("button", { type: "button", class: "btn primary", text: "Fechar", onclick: () => { S.redrawGestores = null; closeLayer(); } })));
@@ -821,6 +991,7 @@ table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
     S.loading = false;
     if (!db) { live.querySelector("span").textContent = "Offline"; render(); return; }
     S.db = db;
+    window.claude.use("mcp").then(m => { S.mcp = m; });
     const user = await window.claude.use("user");
     S.user = user;
     if (user) {
