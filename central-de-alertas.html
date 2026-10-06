@@ -23,13 +23,8 @@
   --accent: var(--destaque-texto); --crit: var(--destaque-texto); --warn: var(--texto); --pend: var(--texto-suave); --ok: var(--texto-suave);
   color-scheme: dark;
 }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
-  --fundo: var(--off-white); --superficie: #FFFFFF; --texto: var(--preto); --texto-suave: var(--taupe); --borda: var(--cinza);
-  --destaque-texto: var(--roxo); --superficie-2: var(--off-white);
-  --alerta: #D42A3A; --alerta-fundo: rgba(212,42,58,.10); --sobre-alerta: #FFFFFF;
-  color-scheme: light;
-} }
-:root[data-theme="light"] {
+/* Claro é o padrão; o escuro só entra pelo botão de tema (data-tema="escuro"). */
+:root:not([data-tema="escuro"]) {
   --fundo: var(--off-white); --superficie: #FFFFFF; --texto: var(--preto); --texto-suave: var(--taupe); --borda: var(--cinza);
   --destaque-texto: var(--roxo); --superficie-2: var(--off-white);
   --alerta: #D42A3A; --alerta-fundo: rgba(212,42,58,.10); --sobre-alerta: #FFFFFF;
@@ -53,8 +48,7 @@ button { cursor: pointer; }
 .brand { display: grid; gap: var(--e2); min-width: 0; }
 .logo { height: 44px; width: auto; display: block; max-width: 100%; }
 .logo.claro { display: none; }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .logo.escuro { display: none; } :root:not([data-theme="dark"]) .logo.claro { display: block; } }
-:root[data-theme="light"] .logo.escuro { display: none; } :root[data-theme="light"] .logo.claro { display: block; }
+:root:not([data-tema="escuro"]) .logo.escuro { display: none; } :root:not([data-tema="escuro"]) .logo.claro { display: block; }
 .brand h1 { font-size: 32px; line-height: 1.15; font-weight: 300; }
 .brand h1 b { font-weight: 700; }
 .brand .sub { color: var(--texto-suave); font-size: 13px; line-height: 1.4; }
@@ -340,6 +334,7 @@ body.tvmode { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
+<script>try { document.documentElement.dataset.tema = localStorage.getItem("ca.tema") || "claro"; } catch (e) { document.documentElement.dataset.tema = "claro"; }</script>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -351,6 +346,7 @@ body.tvmode { overflow: hidden; }
       </div>
     </div>
     <div class="top-actions">
+      <button class="btn" id="btnTema" type="button" aria-pressed="false">Tema escuro</button>
       <button class="btn" id="btnTv" type="button">Modo TV</button>
       <button class="btn" id="btnGestores" type="button">Gestores</button>
       <button class="btn primary" id="btnImport" type="button">Importar alertas</button>
@@ -837,7 +833,13 @@ body.tvmode { overflow: hidden; }
     if (S.chart) { const cfg = raceConfig(rd); S.chart.data = cfg.data; S.chart.options = cfg.options; S.chart.update("none"); }
     else S.chart = new Chart(box.querySelector("canvas"), raceConfig(rd));
   }
-  if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (S.chart) { S.chart.destroy(); S.chart = null; } renderRace(); });
+  function setTema(t) {
+    document.documentElement.dataset.tema = t;
+    try { localStorage.setItem("ca.tema", t); } catch (e) {}
+    const b = $("#btnTema"); if (b) { b.textContent = t === "escuro" ? "Tema claro" : "Tema escuro"; b.setAttribute("aria-pressed", String(t === "escuro")); }
+    if (S.chart) { S.chart.destroy(); S.chart = null; renderRace(); }
+    if (tv.on) tvRender();
+  }
 
   // ---------- modo TV ----------
   const TV_SEC = 30;
@@ -1461,6 +1463,8 @@ body.tvmode { overflow: hidden; }
   $("#datePick").max = TODAY;
   $("#datePick").onchange = e => { if (e.target.value) { S.date = e.target.value > TODAY ? TODAY : e.target.value; render(); } };
   $("#statusSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.status = b.dataset.s; S.extra = ""; saveFilters(); render(); };
+  $("#btnTema").onclick = () => setTema(document.documentElement.dataset.tema === "escuro" ? "claro" : "escuro");
+  setTema(document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro");
   $("#btnTv").onclick = () => { if (S.mode === "semana") S.mode = "dia"; tvStart(); };
   $("#gestorFilter").onchange = e => { S.gestor = e.target.value; render(); };
   $("#search").oninput = e => { S.q = e.target.value; render(); };
