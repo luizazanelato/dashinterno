@@ -1,0 +1,849 @@
+<title>Central de Alertas Zanelato</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sala de controle — barra de data no topo, faixa de contagens por categoria, depois cartões por conta com faixa de severidade; visão "7 dias" vira uma matriz conta × dia. */
+:root {
+  --bg: #0a1220; --surface: #101b2e; --surface-2: #16243b; --line: #22334f;
+  --fg: #e6edf7; --muted: #8a9ab3; --accent: #7cc4ff; --accent-ink: #06243f;
+  --crit: #ff6b6b; --warn: #f5b84a; --ok: #4fd18b; --pend: #a7b3c6;
+  --crit-bg: rgba(255,107,107,.12); --warn-bg: rgba(245,184,74,.12); --ok-bg: rgba(79,209,139,.12); --pend-bg: rgba(167,179,198,.12); --accent-bg: rgba(124,196,255,.12);
+  --shadow: 0 10px 40px rgba(0,0,0,.45);
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #f2f5f9; --surface: #ffffff; --surface-2: #eaf0f7; --line: #d6deea;
+  --fg: #0f1b2d; --muted: #5a6a81; --accent: #1764c4; --accent-ink: #ffffff;
+  --crit: #cf3535; --warn: #a96f07; --ok: #17804f; --pend: #66758b;
+  --crit-bg: rgba(207,53,53,.09); --warn-bg: rgba(169,111,7,.10); --ok-bg: rgba(23,128,79,.10); --pend-bg: rgba(102,117,139,.10); --accent-bg: rgba(23,100,196,.09);
+  --shadow: 0 10px 40px rgba(15,27,45,.18);
+  color-scheme: light;
+} }
+:root[data-theme="light"] {
+  --bg: #f2f5f9; --surface: #ffffff; --surface-2: #eaf0f7; --line: #d6deea;
+  --fg: #0f1b2d; --muted: #5a6a81; --accent: #1764c4; --accent-ink: #ffffff;
+  --crit: #cf3535; --warn: #a96f07; --ok: #17804f; --pend: #66758b;
+  --crit-bg: rgba(207,53,53,.09); --warn-bg: rgba(169,111,7,.10); --ok-bg: rgba(23,128,79,.10); --pend-bg: rgba(102,117,139,.10); --accent-bg: rgba(23,100,196,.09);
+  --shadow: 0 10px 40px rgba(15,27,45,.18);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-body); margin: 0; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 48px; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.eyebrow { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+/* top bar */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 20px; }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-size: 26px; font-weight: 800; font-stretch: 112%; letter-spacing: -.01em; }
+.brand .sub { color: var(--muted); font-size: 13px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: border-color .15s, background .15s; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 5px 10px; font-size: 13px; border-radius: 7px; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* date bar */
+.datebar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; color: var(--muted); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.daynav { display: inline-flex; align-items: center; gap: 4px; }
+.daynav .label { min-width: 170px; text-align: center; font-weight: 600; }
+.daynav .label small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.iconbtn { border: 1px solid var(--line); background: transparent; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; }
+.iconbtn:hover { border-color: var(--accent); }
+.datebar input[type=date] { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+.spacer { flex: 1; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+.live.off i { background: var(--pend); box-shadow: none; }
+
+/* summary */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; }
+.kpi .v { font-family: var(--f-display); font-size: 32px; font-weight: 700; font-stretch: 105%; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 12px; color: var(--muted); }
+.kpi .d b { font-weight: 600; }
+.kpi .d .up { color: var(--crit); } .kpi .d .down { color: var(--ok); }
+.kpi.open .v { color: var(--crit); } .kpi.notif .v { color: var(--warn); } .kpi.done .v { color: var(--ok); }
+
+.cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.chip .n { font-family: var(--f-mono); font-size: 12px; background: var(--surface-2); padding: 0 7px; border-radius: 999px; }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); }
+.chip .dot { width: 8px; height: 8px; border-radius: 2px; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.filters select, .filters input[type=search] { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.filters input[type=search] { min-width: 0; flex: 1 1 200px; max-width: 320px; }
+
+/* cards */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: grid; position: relative; overflow: hidden; min-width: 0; }
+.card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--sev, var(--pend)); }
+.card[data-sev="critico"] { --sev: var(--crit); }
+.card[data-sev="atencao"] { --sev: var(--warn); }
+.card[data-sev="config"] { --sev: var(--pend); }
+.card[data-status="resolvido"] { opacity: .62; }
+.card[data-status="resolvido"]::before { background: var(--ok); }
+.card-h { padding: 14px 16px 10px 20px; display: grid; gap: 6px; }
+.card-h .row { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.card-h h3 { font-size: 17px; font-weight: 700; font-stretch: 104%; min-width: 0; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--muted); align-items: center; }
+.pill { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+.pill.aberto { color: var(--crit); background: var(--crit-bg); }
+.pill.notificado { color: var(--warn); background: var(--warn-bg); }
+.pill.resolvido { color: var(--ok); background: var(--ok-bg); }
+.gsel { background: transparent; border: 1px dashed var(--line); border-radius: 6px; padding: 1px 6px; font-size: 12px; color: var(--fg); max-width: 210px; }
+.gsel.none { color: var(--muted); }
+.issues { list-style: none; margin: 0; padding: 0 16px 0 20px; display: grid; }
+.issue { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+.issue .t { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
+.issue .t strong { font-weight: 600; min-width: 0; }
+.issue .tag { font-size: 11px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.issue .tag .dot { width: 7px; height: 7px; border-radius: 2px; }
+.issue .lines { font-size: 13px; color: var(--muted); }
+.issue[data-status="resolvido"] .t strong { text-decoration: line-through; text-decoration-color: var(--muted); }
+.cmp { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; align-items: center; }
+.cmp .k { color: var(--muted); }
+.cmp .val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.bar { position: relative; height: 6px; background: var(--surface-2); border-radius: 3px; margin-top: 4px; }
+.bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--sevc, var(--warn)); }
+.bar .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); border-radius: 1px; }
+.repeat { font-size: 11px; font-weight: 600; color: var(--crit); background: var(--crit-bg); padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.mini { border: 0; background: transparent; color: var(--muted); font-size: 12px; padding: 2px 4px; border-radius: 5px; white-space: nowrap; }
+.mini:hover { color: var(--fg); background: var(--surface-2); }
+.card-f { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 16px 14px 20px; border-top: 1px solid var(--line); }
+.card-f .who { font-size: 12px; color: var(--muted); flex: 1 1 140px; min-width: 0; }
+
+.empty { border: 1px dashed var(--line); border-radius: 12px; padding: 36px 20px; text-align: center; display: grid; gap: 8px; justify-items: center; color: var(--muted); }
+.empty h2 { font-size: 20px; color: var(--fg); }
+
+/* matrix */
+.matrix-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table.matrix { border-collapse: collapse; width: 100%; min-width: 640px; }
+.matrix th, .matrix td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: center; font-size: 13px; }
+.matrix th { font-weight: 600; color: var(--muted); font-size: 12px; }
+.matrix th.acc, .matrix td.acc { text-align: left; white-space: nowrap; }
+.matrix td.acc { font-weight: 600; }
+.matrix tr:last-child td { border-bottom: 0; }
+.cell { width: 100%; min-width: 46px; height: 32px; border-radius: 6px; border: 1px solid transparent; background: transparent; font-family: var(--f-mono); font-size: 12px; }
+.cell.critico { background: var(--crit-bg); color: var(--crit); border-color: var(--crit); }
+.cell.atencao { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.cell.config { background: var(--pend-bg); color: var(--pend); border-color: var(--pend); }
+.cell.resolvido { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.cell.vazio { color: var(--line); cursor: default; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 10px 12px; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* dialogs */
+.scrim { position: fixed; inset: 0; background: rgba(4,9,18,.6); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); width: min(640px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 14px; padding: 20px; }
+.dialog h2 { font-size: 20px; font-weight: 700; }
+.dialog label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.dialog textarea, .dialog input, .dialog select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--fg); width: 100%; }
+.dialog textarea { min-height: 180px; resize: vertical; font-family: var(--f-mono); font-size: 13px; line-height: 1.5; }
+.dialog .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dialog .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.note { font-size: 12px; color: var(--muted); }
+.preview { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
+.preview .p { display: flex; gap: 8px; justify-content: space-between; font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 6px 10px; }
+.glist { display: grid; gap: 8px; }
+.grow { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 500; z-index: 60; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+
+@media (max-width: 760px) {
+  .summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .grid { grid-template-columns: minmax(0,1fr); }
+  .daynav .label { min-width: 0; }
+  .dialog .row2, .grow { grid-template-columns: 1fr; }
+  .wrap { padding-inline: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Central de Alertas</h1>
+      <span class="sub">Zanelato Marketing de Performance · espelho do grupo de alertas do WhatsApp</span>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="btnGestores" type="button">Gestores</button>
+      <button class="btn primary" id="btnImport" type="button">Importar alertas</button>
+    </div>
+  </header>
+
+  <section class="datebar" aria-label="Período">
+    <div class="seg" role="group" aria-label="Atalhos de data">
+      <button type="button" id="qHoje" aria-pressed="true">Hoje</button>
+      <button type="button" id="qOntem" aria-pressed="false">Ontem</button>
+      <button type="button" id="q7" aria-pressed="false">7 dias</button>
+    </div>
+    <div class="daynav">
+      <button class="iconbtn" id="prevDay" type="button" aria-label="Dia anterior">‹</button>
+      <div class="label" id="dayLabel">—</div>
+      <button class="iconbtn" id="nextDay" type="button" aria-label="Próximo dia">›</button>
+    </div>
+    <input type="date" id="datePick" aria-label="Escolher data">
+    <span class="spacer"></span>
+    <span class="live off" id="live"><i></i><span>Conectando…</span></span>
+  </section>
+
+  <section class="summary" id="summary" aria-label="Resumo do dia"></section>
+  <div class="cats" id="cats" role="group" aria-label="Filtrar por tipo de alerta"></div>
+
+  <div class="filters">
+    <div class="seg" role="group" aria-label="Filtrar por status" id="statusSeg">
+      <button type="button" data-s="todos" aria-pressed="true">Todos</button>
+      <button type="button" data-s="aberto" aria-pressed="false">Abertos</button>
+      <button type="button" data-s="notificado" aria-pressed="false">Notificados</button>
+      <button type="button" data-s="resolvido" aria-pressed="false">Resolvidos</button>
+    </div>
+    <select id="gestorFilter" aria-label="Filtrar por gestor"><option value="">Todos os gestores</option></select>
+    <input type="search" id="search" placeholder="Buscar conta ou cliente" aria-label="Buscar conta ou cliente">
+  </div>
+
+  <main id="main"></main>
+</div>
+
+<div id="layer"></div>
+
+<script>
+(() => {
+  // ---------- helpers ----------
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(k));
+    return n;
+  };
+  const pad = n => String(n).padStart(2, "0");
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromIso = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const addDays = (s, n) => { const d = fromIso(s); d.setDate(d.getDate() + n); return iso(d); };
+  const ddmm = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : "";
+  const WEEK = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const slug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || "x";
+  const brl = n => n == null ? "—" : "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const parseBRL = s => { const m = String(s).match(/-?[\d.]+(?:,\d+)?/); return m ? Number(m[0].replace(/\./g, "").replace(",", ".")) : null; };
+  const hhmm = ts => { if (!ts) return ""; const d = new Date(ts); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const TODAY = iso(new Date());
+
+  const CATS = {
+    investimento: { label: "Investimento", color: "var(--warn)" },
+    custo: { label: "CPL / CPA", color: "var(--crit)" },
+    leads: { label: "Perda de leads", color: "var(--accent)" },
+    configuracao: { label: "Configuração", color: "var(--pend)" },
+    ciclo: { label: "Ciclos", color: "var(--crit)" },
+    outro: { label: "Outros", color: "var(--muted)" },
+  };
+  const SEV_RANK = { critico: 3, atencao: 2, config: 1 };
+
+  // ---------- state ----------
+  const S = {
+    db: null, user: null, me: null, canWrite: true,
+    alerts: [], gestores: {}, contas: {},
+    date: TODAY, mode: "dia", cat: "", status: "todos", gestor: "", q: "",
+    names: {},
+  };
+  try { const saved = JSON.parse(localStorage.getItem("ca.filters") || "{}"); if (saved.status) S.status = saved.status; } catch (e) {}
+  const saveFilters = () => { try { localStorage.setItem("ca.filters", JSON.stringify({ status: S.status })); } catch (e) {} };
+
+  // ---------- parser (texto copiado do WhatsApp) ----------
+  const HEADER_RE = /Alerta\s+(de\s+Ciclos\s+)?[—–-]\s*(.+?)\s*$/i;
+  const PREFIX_RE = /^\s*\[?(\d{1,2}):(\d{2})(?::\d{2})?,?\s+(\d{1,2})\/(\d{1,2})\/(\d{2,4})\]?\s*(?:-\s*)?[^:]{1,60}:\s*/;
+  const PREFIX_RE2 = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4}),?\s+(\d{1,2}):(\d{2})\s*-\s*[^:]{1,60}:\s*/;
+  const TITLE_RE = /^(Investimento\b.*planejad|CP[LA]\b.*planejad|CP[LA]\s+n[aã]o\s+configurad|Programa[cç][aã]o\b|Perda de leads|Or[cç]amento\b|ROAS\b|Connect rate\b)/i;
+  const strip = s => s.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+
+  function inferDate(dd, mm, ctxIso) {
+    const ctx = fromIso(ctxIso);
+    let d = new Date(ctx.getFullYear(), mm - 1, dd);
+    if (d - ctx > 7 * 864e5) d = new Date(ctx.getFullYear() - 1, mm - 1, dd);
+    return iso(d);
+  }
+
+  function classify(title) {
+    const t = title.toLowerCase();
+    const pm = t.match(/(\d+(?:[.,]\d+)?)\s*%\s*(abaixo|acima)/);
+    const pct = pm ? Number(pm[1].replace(",", ".")) : null;
+    const dir = pm ? pm[2] : null;
+    if (/^investimento/.test(t)) return { kind: "invest", category: "investimento", pct, dir, severity: pct != null && pct >= 30 ? "critico" : "atencao" };
+    if (/^cpl\b.*planejad/.test(t)) return { kind: "cpl", category: "custo", pct, dir, severity: pct != null && pct >= 50 ? "critico" : "atencao" };
+    if (/^cpa\b.*planejad/.test(t)) return { kind: "cpa", category: "custo", pct, dir, severity: pct != null && pct >= 50 ? "critico" : "atencao" };
+    if (/^cp[la]\s+n[aã]o\s+configurad/.test(t)) return { kind: t.startsWith("cpl") ? "cpl_config" : "cpa_config", category: "configuracao", severity: "config" };
+    if (/^programa[cç][aã]o\s+vencida/.test(t)) return { kind: "prog_vencida", category: "configuracao", severity: "config" };
+    if (/^programa[cç][aã]o/.test(t)) return { kind: "prog_config", category: "configuracao", severity: "config" };
+    if (/^perda de leads/.test(t)) return { kind: "leads", category: "leads", severity: "critico" };
+    return { kind: "outro-" + slug(title).slice(0, 30), category: "outro", pct, dir, severity: "atencao" };
+  }
+
+  function finishIssue(it) {
+    for (const ln of it.lines) {
+      const m = ln.match(/^(Ontem|Hoje|Atual)\s*:\s*(.+)$/i);
+      const p = ln.match(/^(Planejado|Aceit[aá]vel|Meta)\s*:\s*(.+)$/i);
+      if (m) it.actual = /%/.test(m[2]) && !/R\$/.test(m[2]) ? parseFloat(m[2]) : parseBRL(m[2]);
+      if (p) it.planned = /%/.test(p[2]) && !/R\$/.test(p[2]) ? parseFloat(p[2]) : parseBRL(p[2]);
+      if (m || p) it.unit = /%/.test((m || p)[2]) && !/R\$/.test((m || p)[2]) ? "%" : "R$";
+    }
+    return it;
+  }
+
+  function parseWhatsApp(text, defaultSent) {
+    const msgs = [];
+    let cur = null, pendingSent = null;
+    for (let raw of text.replace(/\r/g, "").split("\n")) {
+      let m = raw.match(PREFIX_RE), sent = null;
+      if (m) { sent = `${m[5].length === 2 ? "20" + m[5] : m[5]}-${pad(m[4])}-${pad(m[3])}`; raw = raw.slice(m[0].length); }
+      else if ((m = raw.match(PREFIX_RE2))) { sent = `${m[3].length === 2 ? "20" + m[3] : m[3]}-${pad(m[2])}-${pad(m[1])}`; raw = raw.slice(m[0].length); }
+      if (sent) pendingSent = sent;
+      const line = raw.trim();
+      const h = line.match(HEADER_RE);
+      if (h && /alerta/i.test(strip(line).slice(0, 7))) {
+        cur = { cycle: !!h[1], header: strip(h[2]), sent: pendingSent || defaultSent, lines: [] };
+        msgs.push(cur);
+        continue;
+      }
+      if (cur) cur.lines.push(line);
+    }
+    const out = [];
+    for (const msg of msgs) {
+      if (msg.cycle) {
+        for (const ln of msg.lines) {
+          const s = strip(ln);
+          const c = s.match(/^([^:]{1,40}):\s*(.+)$/);
+          if (!c) continue;
+          const dm = c[2].match(/\((\d{1,2})\/(\d{1,2})\)/);
+          const [title, ...rest] = c[2].split(/(?<=\))\.\s*/);
+          out.push({ sentDate: msg.sent, refDate: dm ? inferDate(+dm[1], +dm[2], msg.sent) : msg.sent, account: `${msg.header} - ${c[1].trim()}`, client: msg.header,
+            kind: "ciclo", category: "ciclo", severity: "critico", title: strip(title).replace(/\.$/, ""), lines: rest.map(strip).filter(Boolean) });
+        }
+        continue;
+      }
+      let ref = null, issue = null;
+      const issues = [];
+      for (const ln of msg.lines) {
+        const s = strip(ln);
+        if (!s) continue;
+        const dm = s.match(/^Dados de .*\((\d{1,2})\/(\d{1,2})\)/i);
+        if (dm) { ref = inferDate(+dm[1], +dm[2], msg.sent); continue; }
+        if (TITLE_RE.test(s)) { issue = { title: s, lines: [] }; issues.push(issue); continue; }
+        if (issue) issue.lines.push(s);
+      }
+      const client = msg.header.split(/\s+-\s+/)[0].trim();
+      for (const it of issues) {
+        const c = classify(it.title);
+        out.push(finishIssue({ sentDate: msg.sent, refDate: ref || addDays(msg.sent, -1), account: msg.header, client, ...c, title: it.title, lines: it.lines }));
+      }
+    }
+    return out;
+  }
+  const alertId = a => `${a.sentDate}_${slug(a.account)}_${a.kind}`.slice(0, 190);
+
+  // ---------- derived ----------
+  const gestorOf = account => (S.contas[slug(account)] || {}).gestor || "";
+  const gestorName = gid => (S.gestores[gid] || {}).name || "";
+  const keyOf = a => slug(a.account) + "|" + a.kind;
+
+  function indexByDay() {
+    const m = new Map();
+    for (const a of S.alerts) { if (!m.has(a.sentDate)) m.set(a.sentDate, new Set()); m.get(a.sentDate).add(keyOf(a)); }
+    return m;
+  }
+  function streak(a, idx) {
+    let n = 1, d = a.sentDate;
+    for (;;) { d = addDays(d, -1); const s = idx.get(d); if (s && s.has(keyOf(a))) n++; else break; if (n > 60) break; }
+    return n;
+  }
+  function groupCards(list) {
+    const m = new Map();
+    for (const a of list) {
+      const k = a.sentDate + "|" + slug(a.account);
+      if (!m.has(k)) m.set(k, { key: k, account: a.account, client: a.client, sentDate: a.sentDate, refDate: a.refDate, issues: [] });
+      m.get(k).issues.push(a);
+    }
+    const cards = [...m.values()];
+    for (const c of cards) {
+      c.issues.sort((x, y) => (SEV_RANK[y.severity] || 0) - (SEV_RANK[x.severity] || 0));
+      const live = c.issues.filter(i => i.status !== "resolvido");
+      c.status = live.length === 0 ? "resolvido" : live.some(i => i.status !== "notificado") ? "aberto" : "notificado";
+      c.sev = (live.length ? live : c.issues).reduce((b, i) => (SEV_RANK[i.severity] || 0) > (SEV_RANK[b] || 0) ? i.severity : b, "config");
+      c.gestor = gestorOf(c.account);
+      c.notifiedAt = Math.max(0, ...c.issues.map(i => i.notifiedAt || 0)) || null;
+      c.notifiedBy = (c.issues.find(i => i.notifiedAt === c.notifiedAt) || {}).notifiedBy || null;
+      c.resolvedAt = c.status === "resolvido" ? Math.max(0, ...c.issues.map(i => i.resolvedAt || 0)) || null : null;
+    }
+    const sRank = { aberto: 0, notificado: 1, resolvido: 2 };
+    cards.sort((a, b) => sRank[a.status] - sRank[b.status] || (SEV_RANK[b.sev] || 0) - (SEV_RANK[a.sev] || 0) || a.account.localeCompare(b.account));
+    return cards;
+  }
+
+  // ---------- render ----------
+  function renderDateBar() {
+    const d = fromIso(S.date);
+    const rel = S.date === TODAY ? "Hoje" : S.date === addDays(TODAY, -1) ? "Ontem" : `${WEEK[d.getDay()]}, ${ddmm(S.date)}`;
+    const lab = $("#dayLabel");
+    lab.textContent = "";
+    if (S.mode === "semana") lab.append(`${ddmm(addDays(S.date, -6))} a ${ddmm(S.date)}`, el("small", { text: "últimos 7 dias de alertas" }));
+    else lab.append(`${rel} · ${ddmm(S.date)}`, el("small", { text: `alertas recebidos · dados de ${ddmm(addDays(S.date, -1))}` }));
+    $("#datePick").value = S.date;
+    $("#qHoje").setAttribute("aria-pressed", S.mode === "dia" && S.date === TODAY);
+    $("#qOntem").setAttribute("aria-pressed", S.mode === "dia" && S.date === addDays(TODAY, -1));
+    $("#q7").setAttribute("aria-pressed", S.mode === "semana");
+    $("#nextDay").disabled = S.date >= TODAY;
+  }
+
+  function filtered(list) {
+    const q = S.q.trim().toLowerCase();
+    return list.filter(a =>
+      (!S.cat || a.category === S.cat) &&
+      (!S.gestor || (S.gestor === "_none" ? !gestorOf(a.account) : gestorOf(a.account) === S.gestor)) &&
+      (!q || (a.account + " " + a.client).toLowerCase().includes(q)));
+  }
+
+  function renderSummary(dayList, prevList) {
+    const cards = groupCards(dayList), prev = groupCards(prevList);
+    const count = (cs, s) => cs.filter(c => !s || c.status === s).length;
+    const delta = (a, b, lowerIsGood = true) => {
+      const d = a - b;
+      if (!prevList.length && !b) return el("span", { class: "d", text: "sem dados do dia anterior" });
+      if (d === 0) return el("span", { class: "d", text: "igual ao dia anterior" });
+      return el("span", { class: "d" }, el("b", { class: (d > 0) === lowerIsGood ? "up" : "down", text: (d > 0 ? "▲ " : "▼ ") + Math.abs(d) }), " vs dia anterior");
+    };
+    const sum = $("#summary"); sum.textContent = "";
+    const kpis = S.mode === "semana" ? [
+      ["", "Alertas na semana", dayList.length, el("span", { class: "d", text: `${new Set(dayList.map(a => slug(a.account))).size} contas diferentes` })],
+      ["open", "Ainda abertos", count(cards, "aberto"), el("span", { class: "d", text: "contas sem ação" })],
+      ["notif", "Notificados", count(cards, "notificado"), el("span", { class: "d", text: "aguardando gestor" })],
+      ["done", "Resolvidos", count(cards, "resolvido"), el("span", { class: "d", text: "contas fechadas" })],
+    ] : [
+      ["", "Contas com alerta", cards.length, delta(cards.length, prev.length)],
+      ["open", "Abertos", count(cards, "aberto"), el("span", { class: "d", text: "ninguém acionado ainda" })],
+      ["notif", "Notificados", count(cards, "notificado"), el("span", { class: "d", text: "aguardando o gestor" })],
+      ["done", "Resolvidos", count(cards, "resolvido"), el("span", { class: "d", text: cards.length ? `${Math.round(100 * count(cards, "resolvido") / cards.length)}% do dia` : "—" })],
+    ];
+    for (const [cls, lab, v, d] of kpis) sum.append(el("div", { class: "kpi " + cls }, el("span", { class: "eyebrow", text: lab }), el("span", { class: "v", text: v }), d));
+
+    const cats = $("#cats"); cats.textContent = "";
+    const byCat = {};
+    for (const a of dayList) byCat[a.category] = (byCat[a.category] || 0) + 1;
+    cats.append(el("button", { type: "button", class: "chip", "aria-pressed": !S.cat, onclick: () => { S.cat = ""; render(); } }, "Todos os tipos", el("span", { class: "n", text: dayList.length })));
+    for (const [k, c] of Object.entries(CATS)) {
+      if (!byCat[k] && S.cat !== k) continue;
+      cats.append(el("button", { type: "button", class: "chip", "aria-pressed": S.cat === k, onclick: () => { S.cat = S.cat === k ? "" : k; render(); } },
+        el("span", { class: "dot", style: `background:${c.color}` }), c.label, el("span", { class: "n", text: byCat[k] || 0 })));
+    }
+  }
+
+  function renderGestorOptions() {
+    const sel = $("#gestorFilter"), cur = S.gestor;
+    sel.textContent = "";
+    sel.append(el("option", { value: "", text: "Todos os gestores" }), el("option", { value: "_none", text: "Sem gestor definido" }));
+    for (const [id, g] of Object.entries(S.gestores).sort((a, b) => a[1].name.localeCompare(b[1].name))) sel.append(el("option", { value: id, text: g.name }));
+    sel.value = cur;
+  }
+
+  function issueView(a, idx) {
+    const cat = CATS[a.category] || CATS.outro;
+    const st = streak(a, idx);
+    const li = el("li", { class: "issue", "data-status": a.status || "aberto" });
+    li.append(el("div", { class: "t" },
+      el("strong", { text: a.title }),
+      el("span", { style: "display:inline-flex;gap:6px;align-items:center" },
+        st > 1 ? el("span", { class: "repeat", title: "Mesmo alerta nos dias anteriores", text: `${st}º dia seguido` }) : null,
+        S.canWrite ? el("button", { type: "button", class: "mini", onclick: () => setIssue(a, a.status === "resolvido" ? "aberto" : "resolvido"),
+          text: a.status === "resolvido" ? "Reabrir" : "Resolver" }) : null)));
+    li.append(el("span", { class: "tag" }, el("span", { class: "dot", style: `background:${cat.color}` }), cat.label));
+    if (a.actual != null && a.planned != null) {
+      const isPct = a.unit === "%";
+      const fmt = v => isPct ? `${v}%` : brl(v);
+      const max = Math.max(a.actual, a.planned) * 1.15 || 1;
+      const color = a.severity === "critico" ? "var(--crit)" : "var(--warn)";
+      li.append(el("div", { class: "cmp" },
+        el("span", { class: "k", text: a.kind === "leads" ? "Ontem" : "Realizado" }), el("span", { class: "val", text: fmt(a.actual) + (a.kind === "leads" && a.lines[0] ? " " + (a.lines[0].match(/\(.+\)/) || [""])[0] : "") }),
+        el("span", { class: "k", text: a.kind === "leads" ? "Aceitável" : "Planejado" }), el("span", { class: "val", text: fmt(a.planned) })));
+      const bar = el("div", { class: "bar", style: `--sevc:${color}`, title: `Barra: realizado · traço: ${a.kind === "leads" ? "aceitável" : "planejado"}` },
+        el("span", { class: "fill", style: `width:${(100 * a.actual / max).toFixed(1)}%` }),
+        el("span", { class: "tick", style: `left:${(100 * a.planned / max).toFixed(1)}%` }));
+      li.append(bar);
+    } else if (a.lines && a.lines.length) {
+      li.append(el("div", { class: "lines", text: a.lines.join(" ") }));
+    }
+    return li;
+  }
+
+  function cardView(c, idx) {
+    const gid = c.gestor;
+    const card = el("article", { class: "card", "data-sev": c.sev, "data-status": c.status });
+    const gsel = el("select", { class: "gsel" + (gid ? "" : " none"), "aria-label": `Gestor de ${c.account}`, disabled: !S.canWrite,
+      onchange: e => setGestor(c.account, e.target.value) });
+    gsel.append(el("option", { value: "", text: "Definir gestor…" }));
+    for (const [id, g] of Object.entries(S.gestores).sort((a, b) => a[1].name.localeCompare(b[1].name))) gsel.append(el("option", { value: id, text: g.name }));
+    gsel.value = gid;
+    const pillTxt = { aberto: "Aberto", notificado: "Notificado", resolvido: "Resolvido" }[c.status];
+    card.append(el("div", { class: "card-h" },
+      el("div", { class: "row" }, el("h3", { text: c.account }), el("span", { class: "pill " + c.status, text: pillTxt })),
+      el("div", { class: "meta" },
+        S.mode === "semana" ? el("span", { class: "mono", text: `recebido ${ddmm(c.sentDate)}` }) : null,
+        el("span", { text: `dados de ${ddmm(c.refDate)}` }),
+        el("span", { text: `${c.issues.length} ${c.issues.length === 1 ? "problema" : "problemas"}` }),
+        gsel)));
+    const ul = el("ul", { class: "issues" });
+    for (const a of c.issues) ul.append(issueView(a, idx));
+    card.append(ul);
+    const who = el("span", { class: "who" });
+    if (c.status === "resolvido" && c.resolvedAt) who.textContent = `Resolvido em ${hhmm(c.resolvedAt)}`;
+    else if (c.notifiedAt) {
+      who.textContent = `Gestor acionado em ${hhmm(c.notifiedAt)}`;
+      if (c.notifiedBy) personName(c.notifiedBy).then(n => { if (n) who.textContent += ` por ${n}`; });
+    } else who.textContent = gid ? `Responsável: ${gestorName(gid)}` : "Sem gestor definido";
+    const foot = el("div", { class: "card-f" }, who);
+    if (S.canWrite && c.status !== "resolvido") {
+      foot.append(el("button", { type: "button", class: "btn sm " + (c.status === "aberto" ? "primary" : ""), onclick: () => openNotify(c),
+        text: c.status === "notificado" ? "Cobrar de novo" : "Notificar gestor" }));
+      foot.append(el("button", { type: "button", class: "btn sm ghost", onclick: () => setCard(c, "resolvido"), text: "Resolver tudo" }));
+    } else if (S.canWrite) {
+      foot.append(el("button", { type: "button", class: "btn sm ghost", onclick: () => setCard(c, "aberto"), text: "Reabrir" }));
+    }
+    card.append(foot);
+    return card;
+  }
+
+  function renderMatrix(list) {
+    const days = [...Array(7)].map((_, i) => addDays(S.date, i - 6));
+    const accounts = new Map();
+    for (const a of list) {
+      const k = slug(a.account);
+      if (!accounts.has(k)) accounts.set(k, { name: a.account, days: {} });
+      const row = accounts.get(k);
+      (row.days[a.sentDate] = row.days[a.sentDate] || []).push(a);
+    }
+    const rows = [...accounts.values()].sort((a, b) => Object.keys(b.days).length - Object.keys(a.days).length || a.name.localeCompare(b.name));
+    const wrap = el("div", { class: "matrix-wrap" });
+    const t = el("table", { class: "matrix" });
+    const hr = el("tr", {}, el("th", { class: "acc", scope: "col", text: "Conta" }), el("th", { scope: "col", text: "Gestor" }));
+    for (const d of days) hr.append(el("th", { scope: "col" }, `${WEEK[fromIso(d).getDay()]} ${ddmm(d)}`));
+    hr.append(el("th", { scope: "col", text: "Dias" }));
+    t.append(el("thead", {}, hr));
+    const tb = el("tbody");
+    for (const r of rows) {
+      const tr = el("tr", {}, el("td", { class: "acc", text: r.name }), el("td", { class: "muted", text: gestorName(gestorOf(r.name)) || "—" }));
+      for (const d of days) {
+        const items = r.days[d];
+        if (!items) { tr.append(el("td", {}, el("span", { class: "cell vazio", style: "display:grid;place-items:center", "aria-label": "sem alerta", text: "·" }))); continue; }
+        const live = items.filter(i => i.status !== "resolvido");
+        const cls = live.length ? live.reduce((b, i) => (SEV_RANK[i.severity] || 0) > (SEV_RANK[b] || 0) ? i.severity : b, "config") : "resolvido";
+        tr.append(el("td", {}, el("button", { type: "button", class: "cell " + cls, title: items.map(i => i.title).join("\n"),
+          onclick: () => { S.mode = "dia"; S.date = d; S.q = r.name; $("#search").value = r.name; render(); },
+          text: live.length ? items.length : "✓" })));
+      }
+      tr.append(el("td", { class: "mono", text: Object.keys(r.days).length }));
+      tb.append(tr);
+    }
+    t.append(tb);
+    wrap.append(t, el("div", { class: "legend" },
+      el("span", {}, el("i", { style: "background:var(--crit)" }), "crítico"),
+      el("span", {}, el("i", { style: "background:var(--warn)" }), "atenção"),
+      el("span", {}, el("i", { style: "background:var(--pend)" }), "configuração pendente"),
+      el("span", {}, el("i", { style: "background:var(--ok)" }), "resolvido"),
+      el("span", { text: "Toque numa célula para abrir o dia." })));
+    return rows.length ? wrap : emptyView("Nenhum alerta nesses 7 dias", "Mude a data ou importe os alertas do grupo.");
+  }
+
+  function emptyView(title, body) {
+    return el("div", { class: "empty" }, el("h2", { text: title }), el("p", { text: body, style: "margin:0;max-width:52ch" }),
+      S.canWrite && S.db ? el("button", { type: "button", class: "btn primary", onclick: openImport, text: "Importar alertas" }) : null);
+  }
+
+  function render() {
+    renderDateBar();
+    for (const b of $("#statusSeg").children) b.setAttribute("aria-pressed", b.dataset.s === S.status);
+    const main = $("#main"); main.textContent = "";
+    if (!S.db) {
+      renderSummary([], []);
+      main.append(el("div", { class: "empty" }, el("h2", { text: S.loading ? "Carregando alertas…" : "Os alertas ficam salvos no claude.ai" }),
+        el("p", { style: "margin:0;max-width:56ch", text: S.loading ? "Buscando os alertas do grupo." : "Abra esta página logado no claude.ai para ver e atualizar os alertas da equipe." })));
+      return;
+    }
+    const idx = indexByDay();
+    let dayList, prevList;
+    if (S.mode === "semana") {
+      const from = addDays(S.date, -6);
+      dayList = filtered(S.alerts.filter(a => a.sentDate >= from && a.sentDate <= S.date));
+      prevList = [];
+    } else {
+      dayList = filtered(S.alerts.filter(a => a.sentDate === S.date));
+      prevList = filtered(S.alerts.filter(a => a.sentDate === addDays(S.date, -1)));
+    }
+    renderSummary(dayList, prevList);
+    if (S.mode === "semana") { main.append(renderMatrix(dayList)); return; }
+    let cards = groupCards(dayList);
+    if (S.status !== "todos") cards = cards.filter(c => c.status === S.status);
+    if (!cards.length) {
+      const anyDay = S.alerts.some(a => a.sentDate === S.date);
+      main.append(anyDay
+        ? emptyView("Nada com esse filtro", "Limpe os filtros para ver todos os alertas do dia.")
+        : emptyView(`Nenhum alerta registrado em ${ddmm(S.date)}`, "Copie as mensagens do grupo Alertas no WhatsApp e cole em Importar alertas. Cada conta vira um cartão com o gestor responsável."));
+      return;
+    }
+    const grid = el("div", { class: "grid" });
+    for (const c of cards) grid.append(cardView(c, idx));
+    main.append(grid);
+  }
+
+  // ---------- people ----------
+  async function personName(id) {
+    if (!S.user || !id) return "";
+    if (S.names[id] != null) return S.names[id];
+    try { const ps = await S.user.profiles([id]); S.names[id] = (ps[id] && ps[id].name) || ""; } catch (e) { S.names[id] = ""; }
+    return S.names[id];
+  }
+
+  // ---------- writes ----------
+  function toast(msg) {
+    const t = el("div", { class: "toast", role: "status", text: msg });
+    document.body.append(t);
+    setTimeout(() => t.remove(), 2600);
+  }
+  async function guarded(fn) {
+    try { await fn(); return true; }
+    catch (e) {
+      if (e && e.code === "invalid_argument") { S.canWrite = false; render(); toast("Você só tem acesso de leitura a esta página."); }
+      else if (e && e.code === "quota_exceeded") toast("O espaço de alertas encheu. Apague dias antigos para continuar.");
+      else toast("Não foi possível salvar. Tente de novo em instantes.");
+      return false;
+    }
+  }
+  async function setIssue(a, status) {
+    const patch = { status };
+    if (status === "resolvido") { patch.resolvedAt = Date.now(); patch.resolvedBy = S.me; }
+    if (status === "aberto") { patch.resolvedAt = null; patch.resolvedBy = null; patch.notifiedAt = null; patch.notifiedBy = null; }
+    await guarded(() => S.db.doc("alerts/" + a.id).update(patch));
+  }
+  async function setCard(c, status) {
+    const ok = [];
+    for (const a of c.issues) { if ((status === "resolvido") === (a.status === "resolvido")) continue; ok.push(await setIssue(a, status)); }
+    if (status === "resolvido") toast(`${c.account} marcado como resolvido.`);
+  }
+  async function setGestor(account, gid) {
+    await guarded(() => S.db.doc("contas/" + slug(account)).set({ account, gestor: gid }));
+  }
+
+  // ---------- dialogs ----------
+  function closeLayer() { $("#layer").textContent = ""; }
+  function dialog(title, ...body) {
+    const d = el("div", { class: "dialog", role: "dialog", "aria-modal": "true", "aria-label": title }, el("h2", { text: title }), ...body);
+    const scrim = el("div", { class: "scrim", onclick: e => { if (e.target === scrim) closeLayer(); } }, d);
+    $("#layer").textContent = ""; $("#layer").append(scrim);
+    const f = d.querySelector("textarea, input, select, button"); if (f) f.focus();
+    return d;
+  }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeLayer(); });
+
+  function composeMessage(c, gid) {
+    const live = c.issues.filter(i => i.status !== "resolvido");
+    const parts = [`⚠️ Alerta — ${c.account}`, `Dados de ontem (${ddmm(c.refDate)})`, ""];
+    for (const a of live) {
+      parts.push(`• ${a.title}`);
+      if (a.actual != null && a.planned != null) {
+        const f = v => a.unit === "%" ? `${v}%` : brl(v);
+        parts.push(`  ${a.kind === "leads" ? "Ontem" : "Realizado"}: ${f(a.actual)} · ${a.kind === "leads" ? "Aceitável" : "Planejado"}: ${f(a.planned)}`);
+      }
+    }
+    const n = gestorName(gid);
+    const ask = live.every(i => i.category === "configuracao" || i.category === "ciclo") ? "pode ajustar pra gente?" : "consegue verificar e me dar um retorno?";
+    parts.push("", n ? `@${n} ${ask}` : ask.charAt(0).toUpperCase() + ask.slice(1));
+    return parts.join("\n");
+  }
+
+  function openNotify(c) {
+    let gid = c.gestor;
+    const sel = el("select", { id: "nGestor" });
+    sel.append(el("option", { value: "", text: "Sem gestor definido" }));
+    for (const [id, g] of Object.entries(S.gestores).sort((a, b) => a[1].name.localeCompare(b[1].name))) sel.append(el("option", { value: id, text: g.name }));
+    sel.value = gid;
+    const ta = el("textarea", { id: "nMsg" });
+    ta.value = composeMessage(c, gid);
+    const phoneNote = el("p", { class: "note" });
+    const wa = el("a", { class: "btn", target: "_blank", rel: "noopener" }, "Abrir no WhatsApp");
+    const sync = () => {
+      const g = S.gestores[gid] || {};
+      const phone = String(g.phone || "").replace(/\D/g, "");
+      wa.href = (phone ? `https://wa.me/${phone}` : "https://wa.me/") + "?text=" + encodeURIComponent(ta.value);
+      phoneNote.textContent = phone
+        ? `Abre a conversa direta com ${g.name} (${g.phone}). Para mandar no grupo, use Copiar mensagem e cole lá.`
+        : "Sem telefone cadastrado: o WhatsApp abre para você escolher a conversa (o grupo Alertas, por exemplo). Cadastre telefones em Gestores.";
+    };
+    sel.addEventListener("change", async () => {
+      gid = sel.value; ta.value = composeMessage(c, gid); sync();
+      if (gid !== c.gestor) await setGestor(c.account, gid);
+    });
+    ta.addEventListener("input", sync);
+    sync();
+    const copy = el("button", { type: "button", class: "btn", text: "Copiar mensagem", onclick: async () => {
+      try { await navigator.clipboard.writeText(ta.value); toast("Mensagem copiada."); }
+      catch (e) { ta.focus(); ta.select(); toast("Selecionei o texto. Use Ctrl+C / Cmd+C para copiar."); }
+    } });
+    const mark = el("button", { type: "button", class: "btn primary", text: "Marcar como notificado", onclick: async () => {
+      mark.disabled = true;
+      for (const a of c.issues) {
+        if (a.status === "resolvido") continue;
+        await guarded(() => S.db.doc("alerts/" + a.id).update({ status: "notificado", notifiedAt: Date.now(), notifiedBy: S.me, notifiedGestor: gid || null }));
+      }
+      closeLayer(); toast(`${c.account}: gestor marcado como notificado.`);
+    } });
+    dialog(`Notificar gestor · ${c.account}`,
+      el("label", {}, "Gestor responsável pela conta", sel),
+      el("label", {}, "Mensagem", ta),
+      phoneNote,
+      el("div", { class: "acts" }, el("button", { type: "button", class: "btn ghost", text: "Cancelar", onclick: closeLayer }), copy, wa, mark));
+  }
+
+  function openImport() {
+    const ta = el("textarea", { id: "iText", placeholder: "Cole aqui as mensagens do grupo Alertas, por exemplo:\n\n⚠️ Alerta — Marcelo - PIER 2.0\nDados de ontem (05/10)\n\n💸 Investimento 55% abaixo do planejado\nOntem: R$ 1.108,51\nPlanejado: R$ 2.459,89" });
+    const date = el("input", { type: "date", id: "iDate", value: S.date, max: TODAY });
+    const prev = el("div", { class: "preview" });
+    const go = el("button", { type: "button", class: "btn primary", text: "Importar", disabled: true });
+    let parsed = [];
+    const refresh = () => {
+      parsed = parseWhatsApp(ta.value, date.value || TODAY);
+      prev.textContent = "";
+      const accs = new Set(parsed.map(p => p.account));
+      go.textContent = parsed.length ? `Importar ${parsed.length} ${parsed.length === 1 ? "problema" : "problemas"} de ${accs.size} ${accs.size === 1 ? "conta" : "contas"}` : "Importar";
+      go.disabled = !parsed.length;
+      for (const p of parsed) prev.append(el("div", { class: "p" }, el("span", {}, el("b", { text: p.account }), " · " + p.title), el("span", { class: "mono muted", text: ddmm(p.sentDate) })));
+      if (ta.value.trim() && !parsed.length) prev.append(el("p", { class: "note", text: "Não encontrei nenhum alerta. O texto precisa ter linhas como “Alerta — Conta” seguidas dos problemas." }));
+    };
+    ta.addEventListener("input", refresh); date.addEventListener("change", refresh);
+    go.addEventListener("click", async () => {
+      go.disabled = true;
+      let n = 0, dup = 0;
+      for (const p of parsed) {
+        const id = alertId(p);
+        const ref = S.db.doc("alerts/" + id);
+        const ok = await guarded(async () => {
+          const snap = await ref.get();
+          const body = { ...p, importedAt: Date.now(), importedBy: S.me };
+          if (snap.exists) { dup++; await ref.update(body); }
+          else await ref.set({ ...body, status: "aberto", notifiedAt: null, notifiedBy: null, resolvedAt: null, resolvedBy: null });
+        });
+        if (!ok) break;
+        n++;
+      }
+      closeLayer();
+      if (parsed[0]) { S.mode = "dia"; S.date = parsed[0].sentDate; }
+      render();
+      toast(dup ? `${n - dup} novos, ${dup} já existiam e foram atualizados.` : `${n} problemas importados.`);
+    });
+    dialog("Importar alertas do WhatsApp",
+      el("p", { class: "note", style: "margin:0", text: "No WhatsApp, selecione as mensagens do grupo, copie e cole aqui. Alertas repetidos do mesmo dia são atualizados sem perder o status." }),
+      el("label", {}, "Mensagens", ta),
+      el("label", { style: "max-width:240px" }, "Recebidas em (quando o texto não traz a data)", date),
+      prev,
+      el("div", { class: "acts" }, el("button", { type: "button", class: "btn ghost", text: "Cancelar", onclick: closeLayer }), go));
+  }
+
+  function openGestores() {
+    const list = el("div", { class: "glist" });
+    const draw = () => {
+      list.textContent = "";
+      const entries = Object.entries(S.gestores).sort((a, b) => a[1].name.localeCompare(b[1].name));
+      if (!entries.length) list.append(el("p", { class: "note", text: "Nenhum gestor cadastrado ainda." }));
+      for (const [id, g] of entries) {
+        const name = el("input", { value: g.name, "aria-label": "Nome", id: "gn-" + id });
+        const phone = el("input", { value: g.phone || "", placeholder: "+55 11 99999-9999", "aria-label": "WhatsApp", id: "gp-" + id, inputmode: "tel" });
+        const save = () => { if (name.value.trim() && (name.value !== g.name || phone.value !== (g.phone || ""))) guarded(() => S.db.doc("gestores/" + id).set({ name: name.value.trim(), phone: phone.value.trim() })); };
+        name.addEventListener("change", save); phone.addEventListener("change", save);
+        const nAcc = Object.values(S.contas).filter(c => c.gestor === id).length;
+        list.append(el("div", { class: "grow" }, name, phone,
+          el("button", { type: "button", class: "mini", title: nAcc ? `${nAcc} contas usam este gestor` : "", text: "Remover",
+            onclick: async () => { await guarded(() => S.db.doc("gestores/" + id).delete()); } })));
+      }
+    };
+    draw();
+    const nn = el("input", { placeholder: "Nome do gestor", id: "newName" });
+    const np = el("input", { placeholder: "WhatsApp (opcional)", id: "newPhone", inputmode: "tel" });
+    const add = el("button", { type: "button", class: "btn", text: "Adicionar", onclick: async () => {
+      const name = nn.value.trim(); if (!name) return;
+      await guarded(() => S.db.doc("gestores/" + slug(name)).set({ name, phone: np.value.trim() }));
+      nn.value = np.value = "";
+    } });
+    S.redrawGestores = draw;
+    dialog("Gestores",
+      el("p", { class: "note", style: "margin:0", text: "Com o WhatsApp cadastrado, o botão Notificar gestor abre a conversa direta já com a mensagem pronta." }),
+      list,
+      el("div", { class: "grow" }, nn, np, add),
+      el("div", { class: "acts" }, el("button", { type: "button", class: "btn primary", text: "Fechar", onclick: () => { S.redrawGestores = null; closeLayer(); } })));
+  }
+
+  // ---------- controls ----------
+  $("#qHoje").onclick = () => { S.mode = "dia"; S.date = TODAY; render(); };
+  $("#qOntem").onclick = () => { S.mode = "dia"; S.date = addDays(TODAY, -1); render(); };
+  $("#q7").onclick = () => { S.mode = S.mode === "semana" ? "dia" : "semana"; render(); };
+  $("#prevDay").onclick = () => { S.date = addDays(S.date, S.mode === "semana" ? -7 : -1); render(); };
+  $("#nextDay").onclick = () => { const n = addDays(S.date, S.mode === "semana" ? 7 : 1); S.date = n > TODAY ? TODAY : n; render(); };
+  $("#datePick").max = TODAY;
+  $("#datePick").onchange = e => { if (e.target.value) { S.date = e.target.value > TODAY ? TODAY : e.target.value; render(); } };
+  $("#statusSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.status = b.dataset.s; saveFilters(); render(); };
+  $("#gestorFilter").onchange = e => { S.gestor = e.target.value; render(); };
+  $("#search").oninput = e => { S.q = e.target.value; render(); };
+  $("#btnImport").onclick = () => { if (S.db && S.canWrite) openImport(); else toast("Abra logado no claude.ai para importar."); };
+  $("#btnGestores").onclick = () => { if (S.db) openGestores(); else toast("Abra logado no claude.ai para gerenciar gestores."); };
+
+  // ---------- boot ----------
+  S.loading = true;
+  render();
+  (async () => {
+    const live = $("#live");
+    const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+    S.loading = false;
+    if (!db) { live.querySelector("span").textContent = "Offline"; render(); return; }
+    S.db = db;
+    const user = await window.claude.use("user");
+    S.user = user;
+    if (user) {
+      S.me = await user.id();
+      const cw = await user.can("data.write");
+      if (cw === false) S.canWrite = false;
+    }
+    $("#btnImport").hidden = !S.canWrite;
+    const fail = () => { live.className = "live off"; live.querySelector("span").textContent = "Sem conexão"; };
+    db.collection("alerts").orderBy("sentDate", "desc").limit(1000).onSnapshot(snap => {
+      S.alerts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      live.className = "live"; live.querySelector("span").textContent = "Ao vivo";
+      render();
+    }, fail);
+    db.collection("gestores").onSnapshot(snap => {
+      S.gestores = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+      renderGestorOptions(); render();
+      if (S.redrawGestores) S.redrawGestores();
+    }, fail);
+    db.collection("contas").onSnapshot(snap => {
+      S.contas = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+      render();
+    }, fail);
+  })();
+})();
+</script>
